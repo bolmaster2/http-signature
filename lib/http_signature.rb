@@ -53,12 +53,12 @@ module HTTPSignature
     headers = headers.map { |h| h.split(':').first }
     header_fields = ['(request-target)', 'host'].concat(headers).join(' ')
 
-   [
-     "keyId=\"#{key_id}\"",
-     "algorithm=\"#{algorithm}\"",
-     "headers=\"#{header_fields}\"",
-     "signature=\"#{Base64.strict_encode64(signature)}\""
-   ].join(',')
+    [
+      "keyId=\"#{key_id}\"",
+      "algorithm=\"#{algorithm}\"",
+      "headers=\"#{header_fields}\"",
+      "signature=\"#{Base64.strict_encode64(signature)}\""
+    ].join(',')
   end
 
   def self.supported_algorithms
