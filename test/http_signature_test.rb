@@ -2,10 +2,6 @@ require 'minitest/autorun'
 require 'http_signature'
 
 describe HTTPSignature do
-  before do
-
-  end
-
   def public_key
     File.read('test/keys/id_rsa.pub')
   end
