@@ -59,7 +59,7 @@ HTTPSignature.create(
   key: 'secret 🙈',
   body: body
 )
-# keyId=\"Test\",algorithm=\"hmac-sha256\",headers=\"(request-target) host date digest\",signature=\"NjQ2NzkxMGEwZDYwYmYxNjBlZGQyMmJlZDlkZTgxMDkyN2FhNzBkMzBjYjYyMDRiYTU3YzRiZjkzZGI1NWY3OA==\"
+# 'keyId="Test",algorithm="hmac-sha256",headers="(request-target) host date digest",signature="NjQ2NzkxMGEwZDYwYmYxNjBlZGQyMmJlZDlkZTgxMDkyN2FhNzBkMzBjYjYyMDRiYTU3YzRiZjkzZGI1NWY3OA=="'
 ```
 ## Test
 ```
