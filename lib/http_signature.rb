@@ -65,6 +65,11 @@ module HTTPSignature
     ['hmac-sha256', 'rsa-sha256']
   end
 
+  # Create the digest header based on the body
+  def self.create_digest(body)
+    'SHA-256=' + Digest::SHA256.base64digest(body)
+  end
+
   private
     def self.split_url(url)
       url.gsub('http://', '').gsub('https://', '').split('/')
@@ -85,7 +90,7 @@ module HTTPSignature
     end
 
     def self.add_digest(headers, body)
-      headers[:digest] = Digest::SHA256.base64digest(body) unless body.empty?
+      headers[:digest] = create_digest(body) unless body.empty?
 
       headers
     end

@@ -85,7 +85,7 @@ describe HTTPSignature do
         headers = {
           date: 'Thu, 05 Jan 2014 21:31:40 GMT',
           'content-type': 'application/json',
-          digest: 'SHA-256=X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=',
+          digest: HTTPSignature.create_digest('{"hello": "world"}'),
           'content-length': '18'
         }
 
