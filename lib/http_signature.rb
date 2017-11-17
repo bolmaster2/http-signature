@@ -25,7 +25,7 @@ module HTTPSignature
     ].concat(headers).join("\n")
 
     signature = sign(string_to_sign, key: key, algorithm: algorithm)
-    get_signature_header(key_id: key_id, headers: headers, signature: signature,
+    create_signature_header(key_id: key_id, headers: headers, signature: signature,
       algorithm: algorithm)
   end
 
@@ -49,7 +49,7 @@ module HTTPSignature
     url.unshift('').join('/')
   end
 
-  def self.get_signature_header(key_id:, headers: [], signature:, algorithm:)
+  def self.create_signature_header(key_id:, headers: [], signature:, algorithm:)
     headers = headers.map { |h| h.split(':').first }
     header_fields = ['(request-target)', 'host'].concat(headers).join(' ')
 
