@@ -34,7 +34,7 @@ describe HTTPSignature do
 
     describe 'with post data' do
       it 'includes digest as header' do
-
+        skip
       end
     end
   end
