@@ -25,11 +25,13 @@ params = {
   pet: 'dog'
 }
 
+body = '{"hello": "world"}'
+
 headers = {
   date: 'Thu, 05 Jan 2014 21:31:40 GMT',
   'content-type': 'application/json',
-  digest: 'SHA-256=X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=',
-  'content-length': '18'
+  digest: HTTPSignature.create_digest(body),
+  'content-length': body.length
 }
 
 HTTPSignature.create(
@@ -39,11 +41,26 @@ HTTPSignature.create(
   headers: headers,
   key_id: 'Test',
   algorithm: 'rsa-sha256',
-  key: OpenSSL::PKey::RSA.new(File.read('key.pem'))
+  key: OpenSSL::PKey::RSA.new(File.read('key.pem')),
+  body: body
 )
 # 'keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="Ef7MlxLXoBovhil3AlyjtBwAL9g4TN3tibLj7uuNB3CROat/9KaeQ4hW2NiJ+pZ6HQEOx9vYZAyi+7cmIkmJszJCut5kQLAwuX+Ms/mUFvpKlSo9StS2bMXDBNjOh4Auj774GFj4gwjS+3NhFeoqyr/MuN6HsEnkvn6zdgfE2i0="'
 ```
 
+#### With digest header auto-added
+When digest header is omitted it's auto added as last header generated from the `body`:
+
+```ruby
+body = '{"foo": "bar"}'
+
+HTTPSignature.create(
+  url: 'https://example.com/foo',
+  key_id: 'Test',
+  key: 'secret 🙈',
+  body: body
+)
+# keyId=\"Test\",algorithm=\"hmac-sha256\",headers=\"(request-target) host date digest\",signature=\"NjQ2NzkxMGEwZDYwYmYxNjBlZGQyMmJlZDlkZTgxMDkyN2FhNzBkMzBjYjYyMDRiYTU3YzRiZjkzZGI1NWY3OA==\"
+```
 ## Test
 ```
 rake test
