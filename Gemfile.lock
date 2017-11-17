@@ -1,0 +1,22 @@
+PATH
+  remote: .
+  specs:
+    HTTP-signature (0.0.1)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    minitest (5.10.3)
+    rake (12.2.1)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  HTTP-signature!
+  bundler
+  minitest
+  rake
+
+BUNDLED WITH
+   1.16.0
