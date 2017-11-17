@@ -47,7 +47,7 @@ HTTPSignature.create(
 # 'keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="Ef7MlxLXoBovhil3AlyjtBwAL9g4TN3tibLj7uuNB3CROat/9KaeQ4hW2NiJ+pZ6HQEOx9vYZAyi+7cmIkmJszJCut5kQLAwuX+Ms/mUFvpKlSo9StS2bMXDBNjOh4Auj774GFj4gwjS+3NhFeoqyr/MuN6HsEnkvn6zdgfE2i0="'
 ```
 
-#### With digest header auto-added
+### With digest header auto-added
 When digest header is omitted it's auto added as last header generated from the `body`:
 
 ```ruby
