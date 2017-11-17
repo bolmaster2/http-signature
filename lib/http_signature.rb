@@ -61,6 +61,7 @@ module HTTPSignature
     ].join(',')
   end
 
+  # TODO: Support them all: rsa-sha1, rsa-sha512, dsa-sha1, hmac-sha1, hmac-sha512
   def self.supported_algorithms
     ['hmac-sha256', 'rsa-sha256']
   end
