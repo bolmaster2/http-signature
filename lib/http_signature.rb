@@ -44,9 +44,7 @@ module HTTPSignature
   end
 
   def self.get_path(url)
-    url = split_url(url)
-    url.shift
-    url.unshift('').join('/')
+    '/' + split_url(url).drop(1).join('/')
   end
 
   def self.create_signature_header(key_id:, headers: [], signature:, algorithm:)
@@ -73,7 +71,9 @@ module HTTPSignature
 
   private
     def self.split_url(url)
-      url.gsub('http://', '').gsub('https://', '').split('/')
+      # Removes both http:// and https:// and then slit it into an array by /
+      # First value in array is always the hostname
+      url.gsub(/^http(|s):\/\//, '').split('/')
     end
 
     # Convert a header hash into an array with header strings
