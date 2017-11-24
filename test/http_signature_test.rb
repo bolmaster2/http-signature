@@ -1,5 +1,7 @@
+# frozen_string_literal: true
+
 require 'minitest/autorun'
-require 'http_signature'
+require './lib/http_signature'
 
 describe HTTPSignature do
   def public_key
@@ -32,6 +34,45 @@ describe HTTPSignature do
       end
     end
 
+    describe 'when query string is used in both params and in url' do
+      it 'appends the query_string_params' do
+        url = 'https://bolmaster2.com/?ok=god'
+        key = 'boom'
+
+        params = {
+          boom: 'omg',
+          wtf: 'lol'
+        }
+
+        headers = {
+          date: 'Fri, 10 Nov 2017 12:19:48 GMT'
+        }
+
+        output = HTTPSignature.create(
+          url: url,
+          query_string_params: params,
+          headers: headers,
+          key_id: 'test-key',
+          key: key,
+          algorithm: 'hmac-sha256'
+        )
+
+        string_to_sign = [
+          "(request-target): get /?ok=god&boom=omg&wtf=lol",
+          "host: bolmaster2.com",
+          "date: Fri, 10 Nov 2017 12:19:48 GMT"
+        ].join("\n")
+
+        expected_signature = Base64.strict_encode64(
+          HTTPSignature.sign(string_to_sign, key: key, algorithm: 'hmac-sha256')
+        )
+
+        expected = 'keyId="test-key",algorithm="hmac-sha256",headers="(request-target) host date",signature="'+expected_signature+'"'
+
+        assert_equal expected, output
+      end
+    end
+
     describe 'with post data' do
       it 'includes digest as header' do
         skip
@@ -55,7 +96,7 @@ describe HTTPSignature do
         output = HTTPSignature.create(
           url: 'https://example.com/foo',
           method: :post,
-          params: params,
+          query_string_params: params,
           headers: headers,
           key_id: 'Test',
           algorithm: 'rsa-sha256',
@@ -88,7 +129,7 @@ describe HTTPSignature do
         output = HTTPSignature.create(
           url: 'https://example.com/foo',
           method: :post,
-          params: params,
+          query_string_params: params,
           headers: headers,
           key_id: 'Test',
           algorithm: 'rsa-sha256',

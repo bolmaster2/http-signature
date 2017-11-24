@@ -1,10 +1,25 @@
+# frozen_string_literal: true
+
 require 'openssl'
 require 'securerandom'
 require 'time'
 require 'base64'
+require 'uri'
 
 module HTTPSignature
-  def self.create(url:, params: {}, body: '', headers: {}, key:,
+  # Create signature based on the data sent in
+  #
+  # @param url [String] Full request url, can include query string as well
+  # @param query_string_params [Hash] Query string parameters, appends params to
+  # url if query string is already found in it
+  # @param body [String] Request body as a string, i.e., the "raw" request body
+  # @param headers [Hash] Request headers to include in the signature
+  # @param key [String] Key/secret that is used by the corresponding `algorithm`
+  # @param key_id [String] Key id
+  # @param method [Symbol] Request method, default is `:get`
+  # @param algorithm [String] Algorithm to use when signing, check `supported_algorithms` for
+  # @return [String] The signature header value to use in "Signature" header
+  def self.create(url:, query_string_params: {}, body: '', headers: {}, key:,
     key_id: SecureRandom.hex(8),
     method: :get,
     algorithm: 'hmac-sha256'
@@ -17,7 +32,10 @@ module HTTPSignature
     headers = add_date(headers)
     headers = add_digest(headers, body)
     headers = convert_headers(headers)
-    query_string = params.empty? ? '' : '?' + URI.encode_www_form(params)
+    # If/when query string params is also set on the path, append the params defined
+    # from `query_string_params`
+    query_string_delimiter = path.include?('?') ? '&' : '?'
+    query_string = query_string_params.empty? ? '' : query_string_delimiter + URI.encode_www_form(query_string_params)
 
     string_to_sign = [
       "(request-target): #{method} #{path}#{query_string}",
@@ -64,7 +82,9 @@ module HTTPSignature
     ['hmac-sha256', 'rsa-sha256']
   end
 
-  # Create the digest header based on the body
+  # Create the digest header based on the request body
+  # @param body [String] Raw request body string
+  # @return [String] SHA256 and base64 digested string with prefix: 'SHA-256='
   def self.create_digest(body)
     'SHA-256=' + Digest::SHA256.base64digest(body)
   end
