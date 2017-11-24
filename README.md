@@ -37,7 +37,7 @@ headers = {
 HTTPSignature.create(
   url: 'https://example.com/foo',
   method: :post,
-  params: params,
+  query_string_params: params,
   headers: headers,
   key_id: 'Test',
   algorithm: 'rsa-sha256',
