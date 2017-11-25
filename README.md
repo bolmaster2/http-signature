@@ -62,9 +62,20 @@ HTTPSignature.create(
 )
 # 'keyId="Test",algorithm="hmac-sha256",headers="(request-target) host date digest",signature="NjQ2NzkxMGEwZDYwYmYxNjBlZGQyMmJlZDlkZTgxMDkyN2FhNzBkMzBjYjYyMDRiYTU3YzRiZjkzZGI1NWY3OA=="'
 ```
+
+## Setup
+```
+bundle install
+```
+
 ## Test
+The tests are written with minitest using specs. Run them all `rake`:
 ```
 rake test
+```
+Or a single with pattern matching:
+```
+rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query_string_params/"
 ```
 
 ## Todo
