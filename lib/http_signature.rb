@@ -28,19 +28,20 @@ module HTTPSignature
     raise 'Unsupported algorithm :(' unless supported_algorithms.include?(algorithm)
 
     uri = URI(url)
-    path = uri.path + (uri.query ? "?#{uri.query}" : '')
+    path = uri.path
     headers = add_date(headers)
     headers = add_digest(headers, body)
     headers = convert_headers(headers)
-    # If/when query string params is also set on the path, append the params defined
+    # When query string params is also set on the url, append the params defined
     # from `query_string_params`
-    query_string_delimiter = path.include?('?') ? '&' : '?'
-    query_string = query_string_params.empty? ? '' : query_string_delimiter + URI.encode_www_form(query_string_params)
+    query =
+      if uri.query || !query_string_params.empty?
+        delimiter = uri.query.nil? ? '' : '&'
+        '?' + (query_string_params.empty? ? '' : [uri.query.to_s, delimiter, URI.encode_www_form(query_string_params)].join)
+      end
 
-    string_to_sign = [
-      "(request-target): #{method} #{path}#{query_string}",
-      "host: #{uri.host}",
-    ].concat(headers).join("\n")
+    string_to_sign = create_signing_string(method: method, path: path,
+      query: query, host: uri.host, headers: headers)
 
     signature = sign(string_to_sign, key: key, algorithm: algorithm)
     create_signature_header(key_id: key_id, headers: headers, signature: signature,
@@ -79,6 +80,18 @@ module HTTPSignature
   # @return [String] SHA256 and base64 digested string with prefix: 'SHA-256='
   def self.create_digest(body)
     'SHA-256=' + Digest::SHA256.base64digest(body)
+  end
+
+  # Creates the string to sign
+  # See details here: https://tools.ietf.org/html/draft-cavage-http-signatures-08#section-2.3
+  # TODO: Concatenate multiple instances of the same headers
+  # Also remove leading and trailing whitespace
+  # @return [String]
+  def self.create_signing_string(method:, path:, query:, host:, headers:)
+    [
+      "(request-target): #{method} #{path}#{query}",
+      "host: #{host}",
+    ].concat(headers).join("\n")
   end
 
   private
