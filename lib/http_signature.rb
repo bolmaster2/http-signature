@@ -27,8 +27,8 @@ module HTTPSignature
 
     raise 'Unsupported algorithm :(' unless supported_algorithms.include?(algorithm)
 
-    host = get_host(url)
-    path = get_path(url)
+    uri = URI(url)
+    path = uri.path + (uri.query ? "?#{uri.query}" : '')
     headers = add_date(headers)
     headers = add_digest(headers, body)
     headers = convert_headers(headers)
@@ -39,7 +39,7 @@ module HTTPSignature
 
     string_to_sign = [
       "(request-target): #{method} #{path}#{query_string}",
-      "host: #{host}",
+      "host: #{uri.host}",
     ].concat(headers).join("\n")
 
     signature = sign(string_to_sign, key: key, algorithm: algorithm)
@@ -55,14 +55,6 @@ module HTTPSignature
       k = OpenSSL::PKey::RSA.new(key)
       k.sign(OpenSSL::Digest::SHA256.new, string)
     end
-  end
-
-  def self.get_host(url)
-    split_url(url).first
-  end
-
-  def self.get_path(url)
-    '/' + split_url(url).drop(1).join('/')
   end
 
   def self.create_signature_header(key_id:, headers: [], signature:, algorithm:)
@@ -90,12 +82,6 @@ module HTTPSignature
   end
 
   private
-    def self.split_url(url)
-      # Removes both http:// and https:// and then slit it into an array by /
-      # First value in array is always the hostname
-      url.gsub(/^http(|s):\/\//, '').split('/')
-    end
-
     # Convert a header hash into an array with header strings
     # { header: 'value'} -> ['header: value']
     def self.convert_headers(headers)

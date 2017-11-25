@@ -143,20 +143,4 @@ describe HTTPSignature do
       end
     end
   end
-
-  describe '.get_host' do
-    it 'returns the hostname' do
-      output = HTTPSignature.get_host('http://omg.com/hello/there?foo=bar')
-
-      assert_equal 'omg.com', output
-    end
-  end
-
-  describe '.get_path' do
-    it 'returns the path' do
-      output = HTTPSignature.get_path('http://omg.com/hello/there?foo=bar')
-
-      assert_equal '/hello/there?foo=bar', output
-    end
-  end
 end
