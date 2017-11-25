@@ -42,7 +42,7 @@ HTTPSignature.create(
   headers: headers,
   key_id: 'Test',
   algorithm: 'rsa-sha256',
-  key: OpenSSL::PKey::RSA.new(File.read('key.pem')),
+  key: File.read('key.pem'),
   body: body
 )
 # 'keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="Ef7MlxLXoBovhil3AlyjtBwAL9g4TN3tibLj7uuNB3CROat/9KaeQ4hW2NiJ+pZ6HQEOx9vYZAyi+7cmIkmJszJCut5kQLAwuX+Ms/mUFvpKlSo9StS2bMXDBNjOh4Auj774GFj4gwjS+3NhFeoqyr/MuN6HsEnkvn6zdgfE2i0="'
