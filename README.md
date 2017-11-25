@@ -14,12 +14,14 @@ HTTPSignature.create(
   key_id: 'Test',
   key: 'secret 🙈'
 )
-# This will yield the value to use in the `Signature` header:
 # 'keyId="test-key",algorithm="hmac-sha256",headers="(request-target) host date",signature="MDAyMDYxNWRhMmEwNDhiMTQ1MDc0MTFjNWZlNjYwYjY2MTkzNDUzMDE5OGU3ZDRhY2E4MzNiNWNmNTlmYzViYw=="'
 ```
 
-### With headers and query string parameters
-Also shows how to set `rsa-sha256` as algorithm.
+### With headers, query parameters and a body
+Uses both query parameters (in query string) and a `json` body as a `POST` request.
+Also shows how to set `rsa-sha256` as algorithm. The `digest` is as you see basically
+a `sha-256` digest of the request body.
+
 ```ruby
 params = {
   param: 'value',
@@ -29,9 +31,9 @@ params = {
 body = '{"hello": "world"}'
 
 headers = {
-  date: 'Thu, 05 Jan 2014 21:31:40 GMT',
+  'date': 'Thu, 05 Jan 2014 21:31:40 GMT',
   'content-type': 'application/json',
-  digest: HTTPSignature.create_digest(body),
+  'digest': HTTPSignature.create_digest(body),
   'content-length': body.length
 }
 
@@ -69,12 +71,12 @@ bundle install
 ```
 
 ## Test
-The tests are written with minitest using specs. Run them all `rake`:
-```
+The tests are written with `minitest` using specs. Run them all with `rake`:
+```bash
 rake test
 ```
 Or a single with pattern matching:
-```
+```bash
 rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query_string_params/"
 ```
 
@@ -88,6 +90,7 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 - When creating the signing string, follow the spec exactly:
   https://tools.ietf.org/html/draft-cavage-http-signatures-08#section-2.3,
   e.g, concatenate multiple instances of the same headers and remove surrounding whitespaces
-- Make `date` header required, useless to auto create it as it's impossible
-  for someone to know the exact value of it.
+- Make `date` header required, it's useless to auto create it as it's impossible
+  for someone to know the exact value of it afterwards and thus impossible to recreate
+  and then validate the signature.
 - Implement adapters for http libraries
