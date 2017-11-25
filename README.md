@@ -2,11 +2,12 @@
 Create and validate HTTP request signature according to this draft: https://tools.ietf.org/html/draft-cavage-http-signatures-08
 
 Aims to only implement the creation of the signature without any external dependencies.
+The idea is to implement adapters to popular http libraries to make it easy to use.
 
 ## Usage
 
 ### Basic
-The most basic usage without any extra headers. If no `date` header is provided it will be automatically created (TODO: make it required). The default algorithm is `hmac-sha256`.
+The most basic usage without any extra headers. If no `date` header is provided it will be automatically created (_TODO: make it required_). The default algorithm is `hmac-sha256`.
 ```ruby
 HTTPSignature.create(
   url: 'https://example.com/foo',
@@ -65,3 +66,17 @@ HTTPSignature.create(
 ```
 rake test
 ```
+
+## Todo
+- Implement all algorithms:
+  - rsa-sha1
+  - rsa-sha512
+  - dsa-sha1
+  - hmac-sha1
+  - hmac-sha512
+- When creating the signing string, follow the spec exactly:
+  https://tools.ietf.org/html/draft-cavage-http-signatures-08#section-2.3,
+  e.g, concatenate multiple instances of the same headers and remove surrounding whitespaces
+- Make `date` header required, useless to auto create it as it's impossible
+  for someone to know the exact value of it.
+- Implement adapters for http libraries
