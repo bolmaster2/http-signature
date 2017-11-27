@@ -67,6 +67,39 @@ HTTPSignature.create(
 # 'keyId="Test",algorithm="hmac-sha256",headers="(request-target) host date digest",signature="NjQ2NzkxMGEwZDYwYmYxNjBlZGQyMmJlZDlkZTgxMDkyN2FhNzBkMzBjYjYyMDRiYTU3YzRiZjkzZGI1NWY3OA=="'
 ```
 
+### Validate asymmetric signature
+With an asymmetric algorithm you can't just recreate the same header and see if they
+check out, because you need the private key to do that and because the one validating
+the signature should only have access to the public key, you need to validate it with that.
+
+```ruby
+params = {
+  url: 'https://example.com/foo',
+  method: :post,
+  query_string_params: {
+    param: 'value',
+    pet: 'dog'
+  },
+  headers: {
+    date: 'Thu, 05 Jan 2014 21:31:40 GMT'
+  },
+  key_id: 'Test',
+  algorithm: 'rsa-sha256',
+  key: OpenSSL::PKey::RSA.new('private_key.pem')
+}
+
+# First we create the signature with the private key and all the request data
+signature_header = HTTPSignature.create(**params)
+# 'keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="Ef7MlxLXoBovhil3AlyjtBwAL9g4TN3tibLj7uuNB3CROat/9KaeQ4hW2NiJ+pZ6HQEOx9vYZAyi+7cmIkmJszJCut5kQLAwuX+Ms/mUFvpKlSo9StS2bMXDBNjOh4Auj774GFj4gwjS+3NhFeoqyr/MuN6HsEnkvn6zdgfE2i0="'
+
+# Then modify the params hash a bit to fit the `valid?` method
+params[:signature] = output
+params[:key] = OpenSSL::PKey::RSA.new('public_key.pem')
+params.delete(:key_id)
+
+HTTPSignature.valid?(**params) # true
+```
+
 ## Setup
 ```
 bundle install
@@ -86,7 +119,6 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
 
 ## Todo
-- Implement ability to validate assymetric signatures with public key
 - Implement all algorithms:
   - rsa-sha1
   - dsa-sha1

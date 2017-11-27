@@ -133,6 +133,36 @@ describe HTTPSignature do
 
         assert_equal expected, output
       end
+
+      it 'validates a signature with the public key' do
+        params = {
+          url: 'https://example.com/foo',
+          method: :post,
+          query_string_params: {
+            param: 'value',
+            pet: 'dog'
+          },
+          headers: {
+            date: 'Thu, 05 Jan 2014 21:31:40 GMT'
+          },
+          key_id: 'Test',
+          algorithm: 'rsa-sha256',
+          key: OpenSSL::PKey::RSA.new(private_key)
+        }
+
+        output = HTTPSignature.create(**params)
+
+        # Use the same params as when created the signature, but add signature
+        # and change the private to the public key and remove the :key_id which
+        # isn't used
+        params[:signature] = output
+        params[:key] = OpenSSL::PKey::RSA.new(public_key)
+        params.delete(:key_id)
+
+        valid = HTTPSignature.valid?(**params)
+
+        assert valid, 'RSA-SHA256 signature is not valid'
+      end
     end
 
     # https://tools.ietf.org/html/draft-cavage-http-signatures-08#appendix-C.3

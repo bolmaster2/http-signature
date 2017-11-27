@@ -32,13 +32,7 @@ module HTTPSignature
     headers = add_date(headers)
     headers = add_digest(headers, body)
     headers = convert_headers(headers)
-    # When query string params is also set on the url, append the params defined
-    # from `query_string_params`
-    query =
-      if uri.query || !query_string_params.empty?
-        delimiter = uri.query.nil? ? '' : '&'
-        '?' + (query_string_params.empty? ? '' : [uri.query.to_s, delimiter, URI.encode_www_form(query_string_params)].join)
-      end
+    query = create_query_string(uri, query_string_params)
 
     string_to_sign = create_signing_string(method: method, path: path,
       query: query, host: uri.host, headers: headers)
@@ -99,7 +93,64 @@ module HTTPSignature
     ].concat(headers).join("\n")
   end
 
+  # Check if signature is valid. Using the exact same parameters as .create plus
+  # the `signature` and minus `key_id`
+  #
+  # @param signature [String] Signature header to validate
+  # @param url [String] Full request url, can include query string as well
+  # @param query_string_params [Hash] Query string parameters, appends params to
+  # url if query string is already found in it
+  # @param body [String] Request body as a string, i.e., the "raw" request body
+  # @param headers [Hash] Request headers to include in the signature
+  # @param key [String] Key/secret that is used by the corresponding `algorithm`
+  # @param method [Symbol] Request method, default is `:get`
+  # @param algorithm [String] Algorithm to use when signing, check `supported_algorithms` for
+  # @return [Boolean] Valid or not, Crypto is kinda binary in this case :)
+  def self.valid?(signature:, url:, query_string_params: {}, body: '', headers: {}, key:, method:, algorithm:)
+    raise 'Key needs to be public' unless key.public?
+
+    # TODO: A lot of the code here is exactly as `.create`, i.e., this could be DRYed :point_down:
+    uri = URI(url)
+    path = uri.path
+    headers = add_digest(headers, body)
+    headers = convert_headers(headers)
+    query = create_query_string(uri, query_string_params)
+
+    string_to_sign = create_signing_string(
+      method: method, path: path, query: query, host: uri.host, headers: headers
+    )
+
+    key.verify(
+      get_digest(algorithm), get_signature_from_header(signature), string_to_sign
+    )
+  end
+
   private
+    # Maps algoritgm string to digest object
+    # @param algorithm [String]
+    # @return [OpenSSL::Digest] Instance of `OpenSSL::Digest::SHA256` or OpenSSL::Digest::SHA512
+    def self.get_digest(algorithm)
+      {
+        'rsa-sha256' => OpenSSL::Digest::SHA256.new,
+        'rsa-sha512' => OpenSSL::Digest::SHA512.new
+      }[algorithm]
+    end
+
+    # Extract the actual signature from the whole "Signature" header
+    # @param header [String]
+    # @return [String]
+    def self.get_signature_from_header(header)
+      Base64.strict_decode64(header.match(/signature\=\"(.*)\"/)[1])
+    end
+
+    # When query string params is also set on the url, append the params defined
+    # in `query_string_params` and make a joint query string
+    def self.create_query_string(uri, query_string_params)
+      if uri.query || !query_string_params.empty?
+        delimiter = uri.query.nil? ? '' : '&'
+        '?' + (query_string_params.empty? ? '' : [uri.query.to_s, delimiter, URI.encode_www_form(query_string_params)].join)
+      end
+    end
     # Convert a header hash into an array with header strings
     # { header: 'value'} -> ['header: value']
     def self.convert_headers(headers)
