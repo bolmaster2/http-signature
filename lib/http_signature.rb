@@ -57,6 +57,9 @@ module HTTPSignature
     when 'rsa-sha256'
       k = OpenSSL::PKey::RSA.new(key)
       k.sign(OpenSSL::Digest::SHA256.new, string)
+    when 'rsa-sha512'
+      k = OpenSSL::PKey::RSA.new(key)
+      k.sign(OpenSSL::Digest::SHA512.new, string)
     end
   end
 
@@ -74,7 +77,7 @@ module HTTPSignature
 
   # TODO: Support them all: rsa-sha1, rsa-sha512, dsa-sha1, hmac-sha1
   def self.supported_algorithms
-    ['hmac-sha256', 'hmac-sha512', 'rsa-sha256']
+    ['hmac-sha256', 'hmac-sha512', 'rsa-sha256', 'rsa-sha512']
   end
 
   # Create the digest header based on the request body

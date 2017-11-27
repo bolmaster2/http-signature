@@ -167,4 +167,28 @@ describe HTTPSignature do
       end
     end
   end
+
+  describe 'when using rsa-sha512' do
+    describe 'with defaults' do
+      it 'creates a valid signature' do
+        url = 'https://bolmaster2.com/foo'
+
+        headers = {
+          date: 'Fri, 10 Nov 2017 12:19:48 GMT'
+        }
+
+        output = HTTPSignature.create(
+          url: url,
+          headers: headers,
+          key_id: 'test-key',
+          key: OpenSSL::PKey::RSA.new(private_key),
+          algorithm: 'rsa-sha512'
+        )
+
+        expected = 'keyId="test-key",algorithm="rsa-sha512",headers="(request-target) host date",signature="RfccrjiL2x43pc5wwM47EkHKO6/Vqn1bCFbbk70Tb4DggmChKZAl/lP+YmScOv550fqoctDHl0/4KXN59yko8knvPD8upAhxwegNiFqZB11n/0II+OkDAldKHlgMDfzW2+3Y2I169Nd/fGOV7iALOK8mA6wFSCFAWwbFp1PhAcI="'
+
+        assert_equal expected, output
+      end
+    end
+  end
 end
