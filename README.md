@@ -119,10 +119,8 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
 
 ## Todo
-- Implement all algorithms:
-  - rsa-sha1
-  - dsa-sha1
-  - hmac-sha1
+- Implement algorithms:
+  - ecdsa-sha256
 - When creating the signing string, follow the spec exactly:
   https://tools.ietf.org/html/draft-cavage-http-signatures-08#section-2.3,
   e.g, concatenate multiple instances of the same headers and remove surrounding whitespaces
