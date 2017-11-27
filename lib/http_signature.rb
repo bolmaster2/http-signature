@@ -52,6 +52,8 @@ module HTTPSignature
     case algorithm
     when 'hmac-sha256'
       OpenSSL::HMAC.hexdigest('SHA256', key, string)
+    when 'hmac-sha512'
+      OpenSSL::HMAC.hexdigest('SHA512', key, string)
     when 'rsa-sha256'
       k = OpenSSL::PKey::RSA.new(key)
       k.sign(OpenSSL::Digest::SHA256.new, string)
@@ -70,9 +72,9 @@ module HTTPSignature
     ].join(',')
   end
 
-  # TODO: Support them all: rsa-sha1, rsa-sha512, dsa-sha1, hmac-sha1, hmac-sha512
+  # TODO: Support them all: rsa-sha1, rsa-sha512, dsa-sha1, hmac-sha1
   def self.supported_algorithms
-    ['hmac-sha256', 'rsa-sha256']
+    ['hmac-sha256', 'hmac-sha512', 'rsa-sha256']
   end
 
   # Create the digest header based on the request body

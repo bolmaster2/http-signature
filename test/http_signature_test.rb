@@ -34,6 +34,30 @@ describe HTTPSignature do
       end
     end
 
+    describe 'when using hmac-sha512' do
+      describe 'with defaults' do
+        it 'creates a valid signature' do
+          url = 'https://bolmaster2.com/foo'
+  
+          headers = {
+            date: 'Fri, 10 Nov 2017 12:19:48 GMT'
+          }
+  
+          output = HTTPSignature.create(
+            url: url,
+            headers: headers,
+            key_id: 'test-key',
+            key: 'boom',
+            algorithm: 'hmac-sha512'
+          )
+  
+          expected = 'keyId="test-key",algorithm="hmac-sha512",headers="(request-target) host date",signature="OTQ1MWY4NmNhMDMwM2Q1ZWJlZjA4ZjFmZTE5ODdhZTQ4NjhlOTM4MmQ2MGU2Y2Y5NjkyMjQ1MThkZmY4MDE2NDhiNjdmOTgwNzg0MGQ4NGQ4OWFhODhmNTdjZmM0YzgyYjcwNmRjNmFlYWE2NDgzNDc3Nzk0NjY1NGEzYTQyZmE="'
+  
+          assert_equal expected, output
+        end
+      end
+    end
+
     describe 'when query string is used in both params and in url' do
       it 'appends the query_string_params' do
         url = 'https://bolmaster2.com/?ok=god'
