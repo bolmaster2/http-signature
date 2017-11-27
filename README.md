@@ -86,10 +86,8 @@ This project is licensed under the terms of the [MIT license](https://opensource
 ## Todo
 - Implement all algorithms:
   - rsa-sha1
-  - rsa-sha512
   - dsa-sha1
   - hmac-sha1
-  - hmac-sha512
 - When creating the signing string, follow the spec exactly:
   https://tools.ietf.org/html/draft-cavage-http-signatures-08#section-2.3,
   e.g, concatenate multiple instances of the same headers and remove surrounding whitespaces
