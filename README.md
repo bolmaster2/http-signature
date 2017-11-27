@@ -80,6 +80,9 @@ Or a single with pattern matching:
 rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query_string_params/"
 ```
 
+## License
+This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
+
 ## Todo
 - Implement all algorithms:
   - rsa-sha1
