@@ -84,6 +84,7 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
 
 ## Todo
+- Implement ability to validate assymetric signatures with public key
 - Implement all algorithms:
   - rsa-sha1
   - dsa-sha1
