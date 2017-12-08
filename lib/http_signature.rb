@@ -125,49 +125,48 @@ module HTTPSignature
     )
   end
 
-  private
-    # Maps algoritgm string to digest object
-    # @param algorithm [String]
-    # @return [OpenSSL::Digest] Instance of `OpenSSL::Digest::SHA256` or OpenSSL::Digest::SHA512
-    def self.get_digest(algorithm)
-      {
-        'rsa-sha256' => OpenSSL::Digest::SHA256.new,
-        'rsa-sha512' => OpenSSL::Digest::SHA512.new
-      }[algorithm]
-    end
+  # Maps algoritgm string to digest object
+  # @param algorithm [String]
+  # @return [OpenSSL::Digest] Instance of `OpenSSL::Digest::SHA256` or OpenSSL::Digest::SHA512
+  def self.get_digest(algorithm)
+    {
+      'rsa-sha256' => OpenSSL::Digest::SHA256.new,
+      'rsa-sha512' => OpenSSL::Digest::SHA512.new
+    }[algorithm]
+  end
 
-    # Extract the actual signature from the whole "Signature" header
-    # @param header [String]
-    # @return [String]
-    def self.get_signature_from_header(header)
-      Base64.strict_decode64(header.match(/signature\=\"(.*)\"/)[1])
-    end
+  # Extract the actual signature from the whole "Signature" header
+  # @param header [String]
+  # @return [String]
+  def self.get_signature_from_header(header)
+    Base64.strict_decode64(header.match(/signature\=\"(.*)\"/)[1])
+  end
 
-    # When query string params is also set on the url, append the params defined
-    # in `query_string_params` and make a joint query string
-    def self.create_query_string(uri, query_string_params)
-      if uri.query || !query_string_params.empty?
-        delimiter = uri.query.nil? ? '' : '&'
-        '?' + (query_string_params.empty? ? '' : [uri.query.to_s, delimiter, URI.encode_www_form(query_string_params)].join)
-      end
+  # When query string params is also set on the url, append the params defined
+  # in `query_string_params` and make a joint query string
+  def self.create_query_string(uri, query_string_params)
+    if uri.query || !query_string_params.empty?
+      delimiter = uri.query.nil? ? '' : '&'
+      '?' + (query_string_params.empty? ? '' : [uri.query.to_s, delimiter, URI.encode_www_form(query_string_params)].join)
     end
-    # Convert a header hash into an array with header strings
-    # { header: 'value'} -> ['header: value']
-    def self.convert_headers(headers)
-      headers.map do |key, value|
-        [key, value].join(': ')
-      end
+  end
+  # Convert a header hash into an array with header strings
+  # { header: 'value'} -> ['header: value']
+  def self.convert_headers(headers)
+    headers.map do |key, value|
+      [key, value].join(': ')
     end
+  end
 
-    def self.add_date(headers)
-      headers[:date] = Time.now.httpdate unless headers[:date]
+  def self.add_date(headers)
+    headers[:date] = Time.now.httpdate unless headers[:date]
 
-      headers
-    end
+    headers
+  end
 
-    def self.add_digest(headers, body)
-      headers[:digest] = create_digest(body) unless body.empty?
+  def self.add_digest(headers, body)
+    headers[:digest] = create_digest(body) unless body.empty?
 
-      headers
-    end
+    headers
+  end
 end
