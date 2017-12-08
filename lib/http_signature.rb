@@ -2,7 +2,6 @@
 
 require 'openssl'
 require 'securerandom'
-require 'time'
 require 'base64'
 require 'uri'
 
@@ -29,7 +28,6 @@ module HTTPSignature
 
     uri = URI(url)
     path = uri.path
-    headers = add_date(headers)
     headers = add_digest(headers, body)
     headers = convert_headers(headers)
     query = create_query_string(uri, query_string_params)
@@ -156,12 +154,6 @@ module HTTPSignature
     headers.map do |key, value|
       [key, value].join(': ')
     end
-  end
-
-  def self.add_date(headers)
-    headers[:date] = Time.now.httpdate unless headers[:date]
-
-    headers
   end
 
   def self.add_digest(headers, body)
