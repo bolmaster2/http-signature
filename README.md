@@ -9,14 +9,14 @@ The idea is to implement adapters to popular http libraries to make it easy to u
 ## Usage
 
 ### Basic
-The most basic usage without any extra headers. If no `date` header is provided it will be automatically created (_TODO: make it required_). The default algorithm is `hmac-sha256`.
+The most basic usage without any extra headers. The default algorithm is `hmac-sha256`.
 ```ruby
 HTTPSignature.create(
   url: 'https://example.com/foo',
   key_id: 'Test',
   key: 'secret 🙈'
 )
-# 'keyId="test-key",algorithm="hmac-sha256",headers="(request-target) host date",signature="MDAyMDYxNWRhMmEwNDhiMTQ1MDc0MTFjNWZlNjYwYjY2MTkzNDUzMDE5OGU3ZDRhY2E4MzNiNWNmNTlmYzViYw=="'
+# 'keyId="Test",algorithm="hmac-sha256",headers="(request-target) host",signature="NzJmOTZjYjhlYzE1MzFkMmY3ZjNiMThiMDM3NGVjMzA1Yjg1ZjllMzdiNzc0ZmYwNmU3MDAwYmI2ZjZhYzQ2OQ=="'
 ```
 
 ### With headers, query parameters and a body
@@ -124,7 +124,4 @@ This project is licensed under the terms of the [MIT license](https://opensource
 - When creating the signing string, follow the spec exactly:
   https://tools.ietf.org/html/draft-cavage-http-signatures-08#section-2.3,
   e.g, concatenate multiple instances of the same headers and remove surrounding whitespaces
-- Make `date` header required, it's useless to auto create it as it's impossible
-  for someone to know the exact value of it afterwards and thus impossible to recreate
-  and then validate the signature.
 - Implement adapters for http libraries
