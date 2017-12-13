@@ -18,7 +18,7 @@ describe HTTPSignature do
         url = 'https://bolmaster2.com/foo'
 
         headers = {
-          date: 'Fri, 10 Nov 2017 12:19:48 GMT'
+          Date: 'Fri, 10 Nov 2017 12:19:48 GMT  '
         }
 
         output = HTTPSignature.create(

@@ -152,7 +152,7 @@ module HTTPSignature
   # { header: 'value'} -> ['header: value']
   def self.convert_headers(headers)
     headers.map do |key, value|
-      [key, value].join(': ')
+      [key.to_s.downcase.strip, value.strip].join(': ')
     end
   end
 
