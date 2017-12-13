@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    HTTP-signature (0.0.1)
+    http-signature (0.0.1)
 
 GEM
   remote: https://rubygems.org/
@@ -13,8 +13,8 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  HTTP-signature!
   bundler
+  http-signature!
   minitest
   rake
 

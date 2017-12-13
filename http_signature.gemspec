@@ -2,7 +2,7 @@ lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |spec|
-  spec.name          = 'HTTP-signature'
+  spec.name          = 'http-signature'
   spec.version       = '0.0.1'
   spec.authors       = ['Joel Larsson']
   spec.email         = ['bolmaster2@gmail.com']
