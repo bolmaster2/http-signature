@@ -33,7 +33,7 @@ module HTTPSignature
     query = create_query_string(uri, query_string_params)
 
     string_to_sign = create_signing_string(method: method, path: path,
-      query: query, host: uri.host, headers: headers)
+      query: query, headers: headers)
 
     signature = sign(string_to_sign, key: key, algorithm: algorithm)
     create_signature_header(key_id: key_id, headers: headers, signature: signature,
@@ -57,7 +57,7 @@ module HTTPSignature
 
   def self.create_signature_header(key_id:, headers: [], signature:, algorithm:)
     headers = headers.map { |h| h.split(':').first }
-    header_fields = ['(request-target)', 'host'].concat(headers).join(' ')
+    header_fields = ['(request-target)'].concat(headers).join(' ')
 
     [
       "keyId=\"#{key_id}\"",
@@ -84,10 +84,9 @@ module HTTPSignature
   # TODO: Concatenate multiple instances of the same headers
   # Also remove leading and trailing whitespace
   # @return [String]
-  def self.create_signing_string(method:, path:, query:, host:, headers:)
+  def self.create_signing_string(method:, path:, query:, headers:)
     [
       "(request-target): #{method} #{path}#{query}",
-      "host: #{host}",
     ].concat(headers).join("\n")
   end
 
@@ -115,7 +114,7 @@ module HTTPSignature
     query = create_query_string(uri, query_string_params)
 
     string_to_sign = create_signing_string(
-      method: method, path: path, query: query, host: uri.host, headers: headers
+      method: method, path: path, query: query, headers: headers
     )
 
     key.verify(

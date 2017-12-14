@@ -18,7 +18,8 @@ describe HTTPSignature do
         url = 'https://bolmaster2.com/foo'
 
         headers = {
-          Date: 'Fri, 10 Nov 2017 12:19:48 GMT  '
+          Host: 'bolmaster2.com',
+          Date: 'Fri, 10 Nov 2017 12:19:48 GMT  ',
         }
 
         output = HTTPSignature.create(
@@ -40,6 +41,7 @@ describe HTTPSignature do
           url = 'https://bolmaster2.com/foo'
 
           headers = {
+            Host: 'bolmaster2.com',
             date: 'Fri, 10 Nov 2017 12:19:48 GMT'
           }
 
@@ -69,6 +71,7 @@ describe HTTPSignature do
         }
 
         headers = {
+          Host: 'bolmaster2.com',
           date: 'Fri, 10 Nov 2017 12:19:48 GMT'
         }
 
@@ -114,6 +117,7 @@ describe HTTPSignature do
         }
 
         headers = {
+          Host: 'example.com',
           date: 'Thu, 05 Jan 2014 21:31:40 GMT'
         }
 
@@ -143,6 +147,7 @@ describe HTTPSignature do
             pet: 'dog'
           },
           headers: {
+            host: 'example.com',
             date: 'Thu, 05 Jan 2014 21:31:40 GMT'
           },
           key_id: 'Test',
@@ -174,6 +179,7 @@ describe HTTPSignature do
         }
 
         headers = {
+          host: 'example.com',
           date: 'Thu, 05 Jan 2014 21:31:40 GMT',
           'content-type': 'application/json',
           digest: HTTPSignature.create_digest('{"hello": "world"}'),
@@ -204,6 +210,7 @@ describe HTTPSignature do
         url = 'https://bolmaster2.com/foo'
 
         headers = {
+          host: 'bolmaster2.com',
           date: 'Fri, 10 Nov 2017 12:19:48 GMT'
         }
 
