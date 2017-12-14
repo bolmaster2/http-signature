@@ -29,7 +29,7 @@ describe HTTPSignature do
           key: 'boom'
         )
 
-        expected = 'keyId="test-key",algorithm="hmac-sha256",headers="(request-target) host date",signature="MDAyMDYxNWRhMmEwNDhiMTQ1MDc0MTFjNWZlNjYwYjY2MTkzNDUzMDE5OGU3ZDRhY2E4MzNiNWNmNTlmYzViYw=="'
+        expected = 'keyId="test-key",algorithm="hmac-sha256",headers="(request-target) host date",signature="ACBhXaKgSLFFB0EcX+ZgtmGTRTAZjn1KyoM7XPWfxbw="'
 
         assert_equal expected, output
       end
@@ -53,7 +53,7 @@ describe HTTPSignature do
             algorithm: 'hmac-sha512'
           )
 
-          expected = 'keyId="test-key",algorithm="hmac-sha512",headers="(request-target) host date",signature="OTQ1MWY4NmNhMDMwM2Q1ZWJlZjA4ZjFmZTE5ODdhZTQ4NjhlOTM4MmQ2MGU2Y2Y5NjkyMjQ1MThkZmY4MDE2NDhiNjdmOTgwNzg0MGQ4NGQ4OWFhODhmNTdjZmM0YzgyYjcwNmRjNmFlYWE2NDgzNDc3Nzk0NjY1NGEzYTQyZmE="'
+          expected = 'keyId="test-key",algorithm="hmac-sha512",headers="(request-target) host date",signature="lFH4bKAwPV6+8I8f4Zh65IaOk4LWDmz5aSJFGN/4AWSLZ/mAeEDYTYmqiPV8/EyCtwbcauqmSDR3eUZlSjpC+g=="'
 
           assert_equal expected, output
         end

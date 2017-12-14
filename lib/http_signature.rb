@@ -43,9 +43,9 @@ module HTTPSignature
   def self.sign(string, key:, algorithm:)
     case algorithm
     when 'hmac-sha256'
-      OpenSSL::HMAC.hexdigest('SHA256', key, string)
+      OpenSSL::HMAC.digest('SHA256', key, string)
     when 'hmac-sha512'
-      OpenSSL::HMAC.hexdigest('SHA512', key, string)
+      OpenSSL::HMAC.digest('SHA512', key, string)
     when 'rsa-sha256'
       k = OpenSSL::PKey::RSA.new(key)
       k.sign(OpenSSL::Digest::SHA256.new, string)
