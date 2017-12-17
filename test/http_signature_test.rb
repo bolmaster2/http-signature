@@ -178,11 +178,13 @@ describe HTTPSignature do
           pet: 'dog'
         }
 
+        body = '{"hello": "world"}'
+
         headers = {
           host: 'example.com',
           date: 'Thu, 05 Jan 2014 21:31:40 GMT',
           'content-type': 'application/json',
-          digest: HTTPSignature.create_digest('{"hello": "world"}'),
+          digest: HTTPSignature.create_digest(body),
           'content-length': '18'
         }
 
@@ -193,7 +195,8 @@ describe HTTPSignature do
           headers: headers,
           key_id: 'Test',
           algorithm: 'rsa-sha256',
-          key: OpenSSL::PKey::RSA.new(private_key)
+          key: OpenSSL::PKey::RSA.new(private_key),
+          body: body
         )
 
         expected_signature = 'Ef7MlxLXoBovhil3AlyjtBwAL9g4TN3tibLj7uuNB3CROat/9KaeQ4hW2NiJ+pZ6HQEOx9vYZAyi+7cmIkmJszJCut5kQLAwuX+Ms/mUFvpKlSo9StS2bMXDBNjOh4Auj774GFj4gwjS+3NhFeoqyr/MuN6HsEnkvn6zdgfE2i0='

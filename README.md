@@ -16,7 +16,7 @@ HTTPSignature.create(
   key_id: 'Test',
   key: 'secret 🙈'
 )
-# 'keyId="Test",algorithm="hmac-sha256",headers="(request-target) host",signature="NzJmOTZjYjhlYzE1MzFkMmY3ZjNiMThiMDM3NGVjMzA1Yjg1ZjllMzdiNzc0ZmYwNmU3MDAwYmI2ZjZhYzQ2OQ=="'
+# 'keyId="Test",algorithm="hmac-sha256",headers="(request-target)",signature="OQ/dHqRW9vFmrW/RCHg7O2Fqx+3uqxJw81p6k9Rcyo4="'
 ```
 
 ### With headers, query parameters and a body
@@ -49,7 +49,6 @@ HTTPSignature.create(
   key: File.read('key.pem'),
   body: body
 )
-# 'keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="Ef7MlxLXoBovhil3AlyjtBwAL9g4TN3tibLj7uuNB3CROat/9KaeQ4hW2NiJ+pZ6HQEOx9vYZAyi+7cmIkmJszJCut5kQLAwuX+Ms/mUFvpKlSo9StS2bMXDBNjOh4Auj774GFj4gwjS+3NhFeoqyr/MuN6HsEnkvn6zdgfE2i0="'
 ```
 
 ### With digest header auto-added
@@ -64,7 +63,7 @@ HTTPSignature.create(
   key: 'secret 🙈',
   body: body
 )
-# 'keyId="Test",algorithm="hmac-sha256",headers="(request-target) host date digest",signature="NjQ2NzkxMGEwZDYwYmYxNjBlZGQyMmJlZDlkZTgxMDkyN2FhNzBkMzBjYjYyMDRiYTU3YzRiZjkzZGI1NWY3OA=="'
+# 'keyId="Test",algorithm="hmac-sha256",headers="(request-target) digest",signature="3Jm5jnCSKX3fYLd58RqRdafZKeuSbUEPhn7grCGx4vg="'
 ```
 
 ### Validate asymmetric signature
