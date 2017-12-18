@@ -160,7 +160,7 @@ describe HTTPSignature do
         # Use the same params as when created the signature, but add signature
         # and change the private to the public key and remove the :key_id which
         # isn't used
-        params[:signature] = output
+        params[:headers][:signature] = output
         params[:key] = OpenSSL::PKey::RSA.new(public_key)
         params.delete(:key_id)
 

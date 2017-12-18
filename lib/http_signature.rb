@@ -90,10 +90,9 @@ module HTTPSignature
     ].concat(headers).join("\n")
   end
 
-  # Check if signature is valid. Using the exact same parameters as .create plus
-  # the `signature` and minus `key_id`
+  # Check if signature is valid. Using the exact same parameters as .create
+  # minus `key_id`
   #
-  # @param signature [String] Signature header to validate
   # @param url [String] Full request url, can include query string as well
   # @param query_string_params [Hash] Query string parameters, appends params to
   # url if query string is already found in it
@@ -103,13 +102,13 @@ module HTTPSignature
   # @param method [Symbol] Request method, default is `:get`
   # @param algorithm [String] Algorithm to use when signing, check `supported_algorithms` for
   # @return [Boolean] Valid or not, Crypto is kinda binary in this case :)
-  def self.valid?(signature:, url:, query_string_params: {}, body: '', headers: {}, key:, method:, algorithm:)
+  def self.valid?(url:, query_string_params: {}, body: '', headers: {}, key:, method:, algorithm:)
     raise 'Key needs to be public' unless key.public?
 
     # TODO: A lot of the code here is exactly as `.create`, i.e., this could be DRYed :point_down:
     uri = URI(url)
     path = uri.path
-    headers = add_digest(headers, body)
+    signature = headers.delete(:signature)
     headers = convert_headers(headers)
     query = create_query_string(uri, query_string_params)
 

@@ -71,32 +71,29 @@ With an asymmetric algorithm you can't just recreate the same header and see if 
 check out, because you need the private key to do that and because the one validating
 the signature should only have access to the public key, you need to validate it with that.
 
+Imagine the incoming HTTP request looks like this:
+```
+POST /foo HTTP/1.1
+Host: example.com
+Date: Thu, 05 Jan 2014 21:31:40 GMT
+Content-Type: application/json
+Content-Length: 18
+Digest: SHA-256=X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=
+Signature: keyId="Test-1",algorithm="rsa-sha256",headers="(request-target) host date content-type content-length digest",signature="YGPVM1tGHD7CHgTmroy9apLtVazdESzMl4vj1koYHNCMmTEDor4Om5TDZDFaJdny5dF3gq+PQQuPwyknNEvACmSjwVXzljPFxaY/JMZTqAdD0yHTP2Rx0Y/J4GwgKARWTZUmccfVYsXp86PhIlCymzleZzYCzj6shyg9NB7Ht+k="
+
+{"hello": "world"}
+```
+
+Let's assume we have this request ☝️ in a `request` object for the sake of the example:
 ```ruby
-params = {
-  url: 'https://example.com/foo',
-  method: :post,
-  query_string_params: {
-    param: 'value',
-    pet: 'dog'
-  },
-  headers: {
-    date: 'Thu, 05 Jan 2014 21:31:40 GMT'
-  },
-  key_id: 'Test',
-  algorithm: 'rsa-sha256',
-  key: OpenSSL::PKey::RSA.new('private_key.pem')
-}
-
-# First we create the signature with the private key and all the request data
-signature_header = HTTPSignature.create(**params)
-# 'keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="Ef7MlxLXoBovhil3AlyjtBwAL9g4TN3tibLj7uuNB3CROat/9KaeQ4hW2NiJ+pZ6HQEOx9vYZAyi+7cmIkmJszJCut5kQLAwuX+Ms/mUFvpKlSo9StS2bMXDBNjOh4Auj774GFj4gwjS+3NhFeoqyr/MuN6HsEnkvn6zdgfE2i0="'
-
-# Then modify the params hash a bit to fit the `valid?` method
-params[:signature] = output
-params[:key] = OpenSSL::PKey::RSA.new('public_key.pem')
-params.delete(:key_id)
-
-HTTPSignature.valid?(**params) # true
+HTTPSignature.valid?(
+  url: request.url,
+  method: request.method,
+  headers: request.headers,
+  body: request.body,
+  key: OpenSSL::PKey::RSA.new('public_key.pem'),
+  algorithm: 'rsa-sha256'
+)
 ```
 
 ## Setup
