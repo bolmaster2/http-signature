@@ -115,8 +115,9 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
 
 ## Todo
-- Add faraday middleware example
-- Add rack example
+- Add faraday middleware outgoing example
+- Add rack outgoing example
+- Add middleware to validate incoming signature
 - Implement algorithms:
   - ecdsa-sha256
 - When creating the signing string, follow the spec exactly:
