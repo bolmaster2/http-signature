@@ -3,7 +3,7 @@
 
 Create and validate HTTP request signature according to this draft: https://tools.ietf.org/html/draft-cavage-http-signatures-08
 
-Aims to only implement the creation of the signature without any external dependencies.
+Aims to only implement the creation and validation of the signature without any external dependencies.
 The idea is to implement adapters to popular http libraries to make it easy to use.
 
 ## Usage
@@ -115,12 +115,10 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
 
 ## Todo
-- Add faraday middleware outgoing example
-- Add rack outgoing example
-- Add middleware to validate incoming signature
+- Add examples of use
+- Add Faraday middlewares
 - Implement algorithms:
   - ecdsa-sha256
 - When creating the signing string, follow the spec exactly:
   https://tools.ietf.org/html/draft-cavage-http-signatures-08#section-2.3,
   e.g, concatenate multiple instances of the same headers and remove surrounding whitespaces
-- Implement adapters for http libraries
