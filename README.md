@@ -1,5 +1,5 @@
 # HTTP Signature
-[![CircleCI](https://circleci.com/gh/blmstr/http-signature/tree/master.svg?style=svg)](https://circleci.com/gh/blmstr/http-signature/tree/master)
+[![CircleCI](https://circleci.com/gh/bolmaster2/http-signature.svg?style=svg)](https://circleci.com/gh/bolmaster2/http-signature)
 
 Create and validate HTTP request signature according to this draft: https://tools.ietf.org/html/draft-cavage-http-signatures-08
 
