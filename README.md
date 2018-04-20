@@ -112,8 +112,8 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 ```
 
 ## Example usage
-### Faraday
-Example of using it on outgoing request. Incoming request coming soon!
+### Faraday middleware
+Example of using it on an outgoing request. Incoming request coming soon!
 ```ruby
 # TODO: Move this into gem
 class AddRequestSignature < Faraday::Middleware
@@ -123,15 +123,13 @@ class AddRequestSignature < Faraday::Middleware
     end
 
     # Choose which headers to sign
-    filtered_headers = %w{ Host Date Digest }
-    headers_to_sign = env[:request_headers].select { |k, v| filtered_headers.include?(k.to_s) }
-
-    headers.select { |header| headers_to_sign.includes(header) }.to_h
+    headers_filter = %w{ Host Date Digest }
+    headers_to_sign = env[:request_headers].select { |k, v| headers_filter.include?(k.to_s) }
 
     signature = HTTPSignature.create(
       url: env[:url],
       method: env[:method],
-      headers: headers,
+      headers: headers_to_sign,
       key: ENV.fetch('REQUEST_SIGNATURE_KEY'),
       key_id: ENV.fetch('REQUEST_SIGNATURE_KEY_ID'),
       algorithm: 'hmac-sha256',
