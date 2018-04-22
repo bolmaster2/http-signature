@@ -159,8 +159,8 @@ I've written a quite sloppy but totally usable rack middleware that validates ev
 This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
 
 ## Todo
-- Add examples of use
-- Add Faraday middlewares
+- Structure and add middlewares into gem
+- Add more example of use with different http libraries
 - Implement algorithms:
   - ecdsa-sha256
 - When creating the signing string, follow the spec exactly:
