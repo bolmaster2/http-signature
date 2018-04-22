@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = 'Create and validate HTTP request signature'
   spec.description   = 'Create and validate HTTP request signature according to this draft: https://tools.ietf.org/html/draft-cavage-http-signatures-08'
-  spec.homepage      = ''
+  spec.homepage      = 'https://github.com/bolmaster2/http-signature'
   spec.license       = 'MIT'
 
   # Prevent pushing this gem to RubyGems.org by setting 'allowed_push_host', or
