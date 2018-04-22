@@ -86,7 +86,7 @@ module HTTPSignature
   # @return [String]
   def self.create_signing_string(method:, path:, query:, headers:)
     [
-      "(request-target): #{method} #{path}#{query}",
+      "(request-target): #{method.upcase} #{path}#{query}",
     ].concat(headers).join("\n")
   end
 
