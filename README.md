@@ -147,6 +147,8 @@ Faraday.new('http://example.com') do |faraday|
   faraday.use(AddRequestSignature)
   faraday.adapter(Faraday.default_adapter)
 end
+
+response = conn.get('/')
 ```
 
 ## License
