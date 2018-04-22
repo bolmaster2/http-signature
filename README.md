@@ -112,8 +112,8 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 ```
 
 ## Example usage
-### Faraday middleware
-Example of using it on an outgoing request. Incoming request coming soon!
+### Faraday middleware on outgoing requests
+Example of using it on an outgoing request.
 ```ruby
 # TODO: Move this into gem
 class AddRequestSignature < Faraday::Middleware
@@ -150,6 +150,10 @@ end
 
 response = conn.get('/')
 ```
+
+### Rack middleware
+I've written a quite sloppy but totally usable rack middleware that validates every incoming request.
+[See it here](examples/rack_middleware.rb). Soon I'll add it to the gem.
 
 ## License
 This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
