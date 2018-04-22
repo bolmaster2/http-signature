@@ -6,7 +6,16 @@ Create and validate HTTP request signature according to this draft: https://tool
 Aims to only implement the creation and validation of the signature without any external dependencies.
 The idea is to implement adapters to popular http libraries to make it easy to use.
 
+## Installation
+```
+gem install http_signature
+```
+
 ## Usage
+
+```ruby
+require 'http_signature'
+```
 
 ### Basic
 The most basic usage without any extra headers. The default algorithm is `hmac-sha256`.
