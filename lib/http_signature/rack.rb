@@ -3,7 +3,7 @@
 require 'http_signature'
 
 # Rack middleware using http-signature gem to validate signature on every incoming request
-class ValidateRequestSignature
+class HTTPSignature::Rack
   KEY = ENV.fetch('REQUEST_SIGNATURE_KEY')
 
   def initialize(app)

@@ -3,12 +3,12 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |spec|
   spec.name          = 'http_signature'
-  spec.version       = '0.0.2'
+  spec.version       = '0.0.3'
   spec.authors       = ['Joel Larsson']
   spec.email         = ['bolmaster2@gmail.com']
 
   spec.summary       = 'Create and validate HTTP request signature'
-  spec.description   = 'Create and validate HTTP request signature according to this draft: https://tools.ietf.org/html/draft-cavage-http-signatures-08'
+  spec.description   = 'Create and validate HTTP request signature according to draft: https://tools.ietf.org/html/draft-cavage-http-signatures-09'
   spec.homepage      = 'https://github.com/bolmaster2/http-signature'
   spec.license       = 'MIT'
 

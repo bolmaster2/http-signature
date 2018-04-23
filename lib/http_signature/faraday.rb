@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 require 'http_signature'
+require 'faraday'
 
-class AddRequestSignature < Faraday::Middleware
+class HTTPSignature::Faraday < Faraday::Middleware
   def call(env)
     if env[:body]
       env[:request_headers].merge!('Digest' => HTTPSignature.create_digest(env[:body]))
@@ -12,12 +13,10 @@ class AddRequestSignature < Faraday::Middleware
     filtered_headers = %w{ Host Date Digest }
     headers_to_sign = env[:request_headers].select { |k, v| filtered_headers.include?(k.to_s) }
 
-    headers.select { |header| headers_to_sign.includes(header) }.to_h
-
     signature = HTTPSignature.create(
       url: env[:url],
       method: env[:method],
-      headers: headers,
+      headers: headers_to_sign,
       key: ENV.fetch('REQUEST_SIGNATURE_KEY'),
       key_id: ENV.fetch('REQUEST_SIGNATURE_KEY_ID'),
       algorithm: 'hmac-sha256',

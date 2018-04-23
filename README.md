@@ -124,52 +124,53 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 ### Faraday middleware on outgoing requests
 Example of using it on an outgoing request.
 ```ruby
-# TODO: Move this into gem
-class AddRequestSignature < Faraday::Middleware
-  def call(env)
-    if env[:body]
-      env[:request_headers].merge!('Digest' => HTTPSignature.create_digest(env[:body]))
-    end
+# Two env variables are needed to be set
+ENV['REQUEST_SIGNATURE_KEY'] = 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f' # This should be long and random
+ENV['REQUEST_SIGNATURE_KEY_ID'] = 'my-key-id' # this is for the recipient to know which key to decrypt with
 
-    # Choose which headers to sign
-    headers_filter = %w{ Host Date Digest }
-    headers_to_sign = env[:request_headers].select { |k, v| headers_filter.include?(k.to_s) }
-
-    signature = HTTPSignature.create(
-      url: env[:url],
-      method: env[:method],
-      headers: headers_to_sign,
-      key: ENV.fetch('REQUEST_SIGNATURE_KEY'),
-      key_id: ENV.fetch('REQUEST_SIGNATURE_KEY_ID'),
-      algorithm: 'hmac-sha256',
-      body: env[:body] ? env[:body] : ''
-    )
-
-    env[:request_headers].merge!('Signature' => signature)
-
-    @app.call(env)
-  end
-end
+require 'http_signature/faraday'
 
 # Tell faraday to use the middleware. Read more about it here: https://github.com/lostisland/faraday#advanced-middleware-usage
 Faraday.new('http://example.com') do |faraday|
-  faraday.use(AddRequestSignature)
+  faraday.use(HTTPSignature::Faraday)
   faraday.adapter(Faraday.default_adapter)
 end
 
+# Now this request will contain the `Signature` header
 response = conn.get('/')
 ```
 
-### Rack middleware
+### Rack middleware for incoming requests
 I've written a quite sloppy but totally usable rack middleware that validates every incoming request.
-[See it here](examples/rack_middleware.rb). Soon I'll add it to the gem.
+
+#### General rack application
+Sinatra for example
+```ruby
+ENV['REQUEST_SIGNATURE_KEY'] = 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f'
+
+require 'http_signature/rack'
+
+use HTTPSignature::Rack
+run MyApp
+```
+
+#### Rails
+Checkout [this documentation](http://guides.rubyonrails.org/rails_on_rack.html). But in short, add this inside the config block:
+```ruby
+config.middleware.use HTTPSignature::Rack
+```
+
+and don't forget to set the key env somewhere:
+```ruby
+ENV['REQUEST_SIGNATURE_KEY'] = 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f'
+```
 
 ## License
 This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
 
 ## Todo
-- Structure and add middlewares into gem
 - Add more example of use with different http libraries
+- Refactor `.valid?` to support all algorithms
 - Implement algorithms:
   - ecdsa-sha256
 - When creating the signing string, follow the spec exactly:
