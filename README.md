@@ -105,22 +105,7 @@ HTTPSignature.valid?(
 )
 ```
 
-## Setup
-```
-bundle install
-```
-
-## Test
-The tests are written with `minitest` using specs. Run them all with `rake`:
-```bash
-rake test
-```
-Or a single with pattern matching:
-```bash
-rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query_string_params/"
-```
-
-## Example usage
+## Example usage with middleware
 ### Faraday middleware on outgoing requests
 Example of using it on an outgoing request.
 ```ruby
@@ -163,6 +148,22 @@ config.middleware.use HTTPSignature::Rack
 and don't forget to set the key env somewhere:
 ```ruby
 ENV['REQUEST_SIGNATURE_KEY'] = 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f'
+```
+
+## Development
+Install dependencies and then you can start running the tests!
+```
+bundle install
+```
+
+### Test
+The tests are written with `minitest` using specs. Run them all with `rake`:
+```bash
+rake test
+```
+Or a single with pattern matching:
+```bash
+rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query_string_params/"
 ```
 
 ## License
