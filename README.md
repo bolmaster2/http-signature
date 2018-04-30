@@ -134,6 +134,8 @@ Sinatra for example
 require 'http_signature/rack'
 
 HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
+# You can exclude paths where you don't want to validate the signature:
+HTTPSignature::Rack.exclude_paths = ['/']
 
 use HTTPSignature::Rack
 run MyApp
@@ -146,12 +148,10 @@ require 'http_signature/rack' # This doesn't have to be inside the block
 config.middleware.use HTTPSignature::Rack
 ```
 
-and don't forget to set the key env somewhere, an initializer should be suitable:
+Don't forget to set the keys somewhere, an initializer should be suitable. Multiple keys
+are supported to be able to easily be rotated.
 ```ruby
 HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
-
-# You can exclude paths where the middleware just pass the request along without caring about anything...
-HTTPSignature::Rack.exclude_paths = ['/']
 ```
 
 
