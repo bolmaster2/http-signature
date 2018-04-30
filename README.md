@@ -142,13 +142,18 @@ run MyApp
 #### Rails
 Checkout [this documentation](http://guides.rubyonrails.org/rails_on_rack.html). But in short, add this inside the config block:
 ```ruby
+require 'http_signature/rack' # This doesn't have to be inside the block
 config.middleware.use HTTPSignature::Rack
 ```
 
 and don't forget to set the key env somewhere, an initializer should be suitable:
 ```ruby
 HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
+
+# You can exclude paths where the middleware just pass the request along without caring about anything...
+HTTPSignature::Rack.exclude_paths = ['/']
 ```
+
 
 ## Development
 Install dependencies and then you can start running the tests!

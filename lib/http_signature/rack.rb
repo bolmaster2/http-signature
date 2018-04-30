@@ -4,12 +4,20 @@ require 'http_signature'
 
 # Rack middleware using http-signature gem to validate signature on every incoming request
 class HTTPSignature::Rack
+  class << self
+    attr_accessor :exclude_paths
+  end
+
   def initialize(app)
     @app = app
+    self.class.exclude_paths ||= []
   end
 
   def call(env)
     request = Rack::Request.new(env)
+
+    return @app.call(env) if path_excluded?(request.path)
+
     return [401, {}, ['No signature header']] unless request.get_header("HTTP_SIGNATURE")
 
     request_body = request.body.gets
@@ -66,5 +74,9 @@ class HTTPSignature::Rack
     ).map do |k, v|
       [k, v.tr('"', '')]
     end.to_h
+  end
+
+  def path_excluded?(path)
+    self.class.exclude_paths.include?(path)
   end
 end
