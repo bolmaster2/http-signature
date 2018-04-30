@@ -159,4 +159,20 @@ module HTTPSignature
 
     headers
   end
+
+  def self.config(**options)
+    @keys = options[:keys]
+  end
+
+  def self.key(id)
+    key = @keys.select do |o|
+      o[:id] == id
+    end.first
+
+    key&.dig(:value) || (raise "Key with id #{id} could not be found")
+  end
+
+  class << self
+    attr_reader :keys
+  end
 end

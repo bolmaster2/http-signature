@@ -4,7 +4,13 @@ require 'http_signature'
 require 'faraday'
 
 class HTTPSignature::Faraday < Faraday::Middleware
+  class << self
+    attr_accessor :key, :key_id
+  end
+
   def call(env)
+    raise 'key and key_id needs to be set' if self.class.key.nil? || self.class.key_id.nil?
+
     if env[:body]
       env[:request_headers].merge!('Digest' => HTTPSignature.create_digest(env[:body]))
     end
@@ -17,8 +23,8 @@ class HTTPSignature::Faraday < Faraday::Middleware
       url: env[:url],
       method: env[:method],
       headers: headers_to_sign,
-      key: ENV.fetch('REQUEST_SIGNATURE_KEY'),
-      key_id: ENV.fetch('REQUEST_SIGNATURE_KEY_ID'),
+      key: self.class.key,
+      key_id: self.class.key_id,
       algorithm: 'hmac-sha256',
       body: env[:body] ? env[:body] : ''
     )
