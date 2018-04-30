@@ -109,11 +109,11 @@ HTTPSignature.valid?(
 ### Faraday middleware on outgoing requests
 Example of using it on an outgoing request.
 ```ruby
-# Two env variables are needed to be set
-ENV['REQUEST_SIGNATURE_KEY'] = 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f' # This should be long and random
-ENV['REQUEST_SIGNATURE_KEY_ID'] = 'my-key-id' # this is for the recipient to know which key to decrypt with
-
 require 'http_signature/faraday'
+# Two variables needed to be set
+HTTPSignature::Faraday.key = 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f' # This should be long and random
+HTTPSignature::Faraday.key_id = 'my-key-id' # For the recipient to know which key to decrypt with
+
 
 # Tell faraday to use the middleware. Read more about it here: https://github.com/lostisland/faraday#advanced-middleware-usage
 Faraday.new('http://example.com') do |faraday|
@@ -131,9 +131,9 @@ I've written a quite sloppy but totally usable rack middleware that validates ev
 #### General rack application
 Sinatra for example
 ```ruby
-ENV['REQUEST_SIGNATURE_KEY'] = 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f'
-
 require 'http_signature/rack'
+
+HTTPSignature.config(key: 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f')
 
 use HTTPSignature::Rack
 run MyApp
@@ -145,9 +145,9 @@ Checkout [this documentation](http://guides.rubyonrails.org/rails_on_rack.html).
 config.middleware.use HTTPSignature::Rack
 ```
 
-and don't forget to set the key env somewhere:
+and don't forget to set the key env somewhere, an initializer should be suitable:
 ```ruby
-ENV['REQUEST_SIGNATURE_KEY'] = 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f'
+HTTPSignature.config(key: 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f')
 ```
 
 ## Development

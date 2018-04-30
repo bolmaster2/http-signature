@@ -1,12 +1,15 @@
 PATH
   remote: .
   specs:
-    http_signature (0.0.3)
+    http_signature (0.0.4)
 
 GEM
   remote: https://rubygems.org/
   specs:
+    faraday (0.15.0)
+      multipart-post (>= 1.2, < 3)
     minitest (5.10.3)
+    multipart-post (2.0.0)
     rake (12.2.1)
 
 PLATFORMS
@@ -14,6 +17,7 @@ PLATFORMS
 
 DEPENDENCIES
   bundler
+  faraday
   http_signature!
   minitest
   rake

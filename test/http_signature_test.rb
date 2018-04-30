@@ -230,4 +230,23 @@ describe HTTPSignature do
       end
     end
   end
+
+  describe '.config' do
+    describe 'with keys' do
+      it 'makes the keys accessible' do
+        keys = [{ id: 'key-1', value: 'asdf' }]
+        HTTPSignature.config(keys: keys)
+
+        assert_equal keys, HTTPSignature.keys
+      end
+
+      it 'can pick a key from id' do
+        keys = [{ id: 'key-1', value: 'asdf' }]
+
+        HTTPSignature.config(keys: keys)
+
+        assert_equal 'asdf', HTTPSignature.key('key-1')
+      end
+    end
+  end
 end
