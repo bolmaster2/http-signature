@@ -111,8 +111,8 @@ Example of using it on an outgoing request.
 ```ruby
 require 'http_signature/faraday'
 # Two variables needed to be set
-HTTPSignature::Faraday.key = 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f' # This should be long and random
-HTTPSignature::Faraday.key_id = 'my-key-id' # For the recipient to know which key to decrypt with
+HTTPSignature::Faraday.key = 'MySecureKey' # This should be long and random
+HTTPSignature::Faraday.key_id = 'key-1' # For the recipient to know which key to decrypt with
 
 
 # Tell faraday to use the middleware. Read more about it here: https://github.com/lostisland/faraday#advanced-middleware-usage
@@ -133,7 +133,7 @@ Sinatra for example
 ```ruby
 require 'http_signature/rack'
 
-HTTPSignature.config(key: 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f')
+HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
 
 use HTTPSignature::Rack
 run MyApp
@@ -147,7 +147,7 @@ config.middleware.use HTTPSignature::Rack
 
 and don't forget to set the key env somewhere, an initializer should be suitable:
 ```ruby
-HTTPSignature.config(key: 'bd24cee668dde6954be53101fb37c53054c555881a9ab36c2f1ae13c2950605f')
+HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
 ```
 
 ## Development
