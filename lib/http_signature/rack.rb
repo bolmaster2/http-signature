@@ -20,20 +20,22 @@ class HTTPSignature::Rack
 
     return [401, {}, ['No signature header']] unless request.get_header("HTTP_SIGNATURE")
 
-    request_body = request.body.gets
-    request_headers = parse_request_headers(request)
     begin
+      request_body = request.body.read
+      request_headers = parse_request_headers(request)
       parsed_signature = parse_signature(request_headers)
+      key = HTTPSignature.key(parsed_signature['keyId'])
     rescue
       return [401, {}, ['Invalid signature :(']]
     end
+
     headers_to_sign = request_headers.select { |k, v| parsed_signature['headers'].include?(k) }
 
     params = {
       url: request.path,
       method: request.request_method,
       headers: headers_to_sign,
-      key: HTTPSignature.key(parsed_signature['keyId']),
+      key: key,
       key_id: parsed_signature['keyId'],
       algorithm: parsed_signature['algorithm'],
       body: request_body ? request_body : '',

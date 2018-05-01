@@ -18,7 +18,7 @@ require 'http_signature'
 ```
 
 ### Basic
-The most basic usage without any extra headers. The default algorithm is `hmac-sha256`.
+The most basic usage without any extra headers. The default algorithm is `hmac-sha256`. This create the `Signature` header value. Next step is to add the value to the header and 💥 you're done!
 ```ruby
 HTTPSignature.create(
   url: 'https://example.com/foo',
@@ -110,7 +110,7 @@ HTTPSignature.valid?(
 Example of using it on an outgoing request.
 ```ruby
 require 'http_signature/faraday'
-# Two variables needed to be set
+
 HTTPSignature::Faraday.key = 'MySecureKey' # This should be long and random
 HTTPSignature::Faraday.key_id = 'key-1' # For the recipient to know which key to decrypt with
 
@@ -123,6 +123,11 @@ end
 
 # Now this request will contain the `Signature` header
 response = conn.get('/')
+
+# Request looking like:
+# GET / HTTP/1.1
+# User-Agent: Faraday v0.15.0
+# Signature: keyId="key-1",algorithm="hmac-sha256",headers="(request-target) date",signature="EzFa4vb0z+VFF8VYt9qQlzF9MTf5Izptc02OJ7aajnU="
 ```
 
 ### Rack middleware for incoming requests

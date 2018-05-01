@@ -11,9 +11,14 @@ class HTTPSignature::Faraday < Faraday::Middleware
   def call(env)
     raise 'key and key_id needs to be set' if self.class.key.nil? || self.class.key_id.nil?
 
-    if env[:body]
-      env[:request_headers].merge!('Digest' => HTTPSignature.create_digest(env[:body]))
-    end
+    body =
+      if env[:body] && env[:body].respond_to?(:read)
+        string = env[:body].read
+        env[:body].rewind
+        string
+      else
+        env[:body].to_s
+      end
 
     # Choose which headers to sign
     filtered_headers = %w{ Host Date Digest }
@@ -26,7 +31,7 @@ class HTTPSignature::Faraday < Faraday::Middleware
       key: self.class.key,
       key_id: self.class.key_id,
       algorithm: 'hmac-sha256',
-      body: env[:body] ? env[:body] : ''
+      body: body
     )
 
     env[:request_headers].merge!('Signature' => signature)
