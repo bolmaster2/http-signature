@@ -79,8 +79,10 @@ class HTTPSignature::Rack
   end
 
   def path_excluded?(path)
-    self.class.exclude_paths.map do |exclude_path|
+    matches = self.class.exclude_paths.map do |exclude_path|
       path.match(exclude_path).present?
-    end.compact.length.positive?
+    end
+
+    matches.select { |v| v == true }.length.positive?
   end
 end
