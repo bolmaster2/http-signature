@@ -32,8 +32,8 @@ module HTTPSignature
     headers = convert_headers(headers)
     query = create_query_string(uri, query_string_params)
 
-    signing_sign = create_signing_string(method: method, path: path, query: query, headers: headers)
-    signature = sign(signing_sign, key: key, algorithm: algorithm)
+    sign_string = create_signing_string(method: method, path: path, query: query, headers: headers)
+    signature = sign(sign_string, key: key, algorithm: algorithm)
     create_signature_header(
       key_id: key_id, headers: headers, signature: signature, algorithm: algorithm
     )
