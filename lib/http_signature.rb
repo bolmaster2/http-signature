@@ -109,6 +109,7 @@ module HTTPSignature
     uri = URI(url)
     path = uri.path
     signature = headers.delete(:signature)
+    headers = add_digest(headers, body)
     headers = convert_headers(headers)
     query = create_query_string(uri, query_string_params)
 
