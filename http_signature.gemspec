@@ -1,9 +1,10 @@
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+require 'http_signature/version'
 
 Gem::Specification.new do |spec|
   spec.name          = 'http_signature'
-  spec.version       = '0.0.7'
+  spec.version       = HTTPSignature::VERSION
   spec.authors       = ['Joel Larsson']
   spec.email         = ['bolmaster2@gmail.com']
 
