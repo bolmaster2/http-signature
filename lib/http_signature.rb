@@ -141,11 +141,13 @@ module HTTPSignature
   # When query string params is also set on the url, append the params defined
   # in `query_string_params` and make a joint query string
   def self.create_query_string(uri, query_string_params)
-    if uri.query || !query_string_params.empty?
-      delimiter = uri.query.nil? ? '' : '&'
-      '?' + (query_string_params.empty? ? '' : [uri.query.to_s, delimiter, URI.encode_www_form(query_string_params)].join)
-    end
+    return if !uri.query && query_string_params.empty?
+
+    delimiter = uri.query.nil? || query_string_params.empty? ? '' : '&'
+
+    ['?', uri.query.to_s, delimiter, URI.encode_www_form(query_string_params)].join
   end
+
   # Convert a header hash into an array with header strings
   # { header: 'value'} -> ['header: value']
   def self.convert_headers(headers)

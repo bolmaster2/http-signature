@@ -231,6 +231,30 @@ describe HTTPSignature do
     end
   end
 
+  describe '.create_query_string' do
+    describe 'when query string is used only in url' do
+      it 'creates correct query string' do
+        query_string = '?param1=value1&param2=value2'
+        url = 'http://localhost/omg' + query_string
+        uri = URI(url)
+
+        output = HTTPSignature.create_query_string(uri, {})
+
+        assert_equal query_string, output
+      end
+    end
+
+    describe 'when query string is used only in query_string_params' do
+      it 'creates correct query string' do
+        uri = URI('http://localhost/omg')
+        output = HTTPSignature.create_query_string(uri, param1: 'value1', param2: 'value2')
+        expected = '?param1=value1&param2=value2'
+
+        assert_equal expected, output
+      end
+    end
+  end
+
   describe '.config' do
     describe 'with keys' do
       it 'makes the keys accessible' do
