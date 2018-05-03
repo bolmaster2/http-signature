@@ -5,6 +5,8 @@ require 'securerandom'
 require 'base64'
 require 'uri'
 
+# Implements signing of a request according to https://tools.ietf.org/html/draft-cavage-http-signatures
+# specification.
 module HTTPSignature
   # Create signature based on the data sent in
   #
@@ -18,12 +20,10 @@ module HTTPSignature
   # @param method [Symbol] Request method, default is `:get`
   # @param algorithm [String] Algorithm to use when signing, check `supported_algorithms` for
   # @return [String] The signature header value to use in "Signature" header
-  def self.create(url:, query_string_params: {}, body: '', headers: {}, key:,
-    key_id: SecureRandom.hex(8),
-    method: :get,
-    algorithm: 'hmac-sha256'
+  def self.create(
+    url:, query_string_params: {}, body: '', headers: {}, key:, key_id: SecureRandom.hex(8),
+    method: :get, algorithm: 'hmac-sha256'
   )
-
     raise 'Unsupported algorithm :(' unless supported_algorithms.include?(algorithm)
 
     uri = URI(url)
@@ -32,12 +32,11 @@ module HTTPSignature
     headers = convert_headers(headers)
     query = create_query_string(uri, query_string_params)
 
-    string_to_sign = create_signing_string(method: method, path: path,
-      query: query, headers: headers)
-
-    signature = sign(string_to_sign, key: key, algorithm: algorithm)
-    create_signature_header(key_id: key_id, headers: headers, signature: signature,
-      algorithm: algorithm)
+    signing_sign = create_signing_string(method: method, path: path, query: query, headers: headers)
+    signature = sign(signing_sign, key: key, algorithm: algorithm)
+    create_signature_header(
+      key_id: key_id, headers: headers, signature: signature, algorithm: algorithm
+    )
   end
 
   def self.sign(string, key:, algorithm:)
@@ -86,7 +85,7 @@ module HTTPSignature
   # @return [String]
   def self.create_signing_string(method:, path:, query:, headers:)
     [
-      "(request-target): #{method.upcase} #{path}#{query}",
+      "(request-target): #{method.upcase} #{path}#{query}"
     ].concat(headers).join("\n")
   end
 
@@ -159,7 +158,6 @@ module HTTPSignature
 
   def self.add_digest(headers, body)
     headers[:digest] = create_digest(body) unless body.empty?
-
     headers
   end
 
@@ -168,9 +166,7 @@ module HTTPSignature
   end
 
   def self.key(id)
-    key = @keys.select do |o|
-      o[:id] == id
-    end.first
+    key = @keys.select { |o| o[:id] == id }.first
 
     key&.dig(:value) || (raise "Key with id #{id} could not be found")
   end
