@@ -105,15 +105,45 @@ HTTPSignature.valid?(
 )
 ```
 
-## Example usage with middleware
-### Faraday middleware on outgoing requests
-Example of using it on an outgoing request.
+## Example usage
+### NET::HTTP
+Example of using it with `NET::HTTP`. There's no real integration written so it's basically just
+getting the request object's data and create the signature and adding it to the headers.
+
+```ruby
+require 'net/http'
+require 'http_signature'
+
+uri = URI('http://example.com/hello')
+
+Net::HTTP.start(uri.host, uri.port) do |http|
+  request = Net::HTTP::Get.new(uri)
+
+  signature = HTTPSignature.create(
+    url: request.uri,
+    method: request.method,
+    headers: request.each_header.map { |k, v| [k, v] }.to_h,
+    key: 'MYSECRETKEY',
+    key_id: 'KEY_1',
+    algorithm: 'hmac-sha256',
+    body: request.body ? request.body : ''
+  )
+
+  request['Signature'] = signature
+
+  response = http.request(request) # Net::HTTPResponse
+end
+```
+
+### Faraday middleware
+Example of using it with an outgoing faraday request. Basically you set the keys and tell faraday
+to use the middleware.
+
 ```ruby
 require 'http_signature/faraday'
 
 HTTPSignature::Faraday.key = 'MySecureKey' # This should be long and random
 HTTPSignature::Faraday.key_id = 'key-1' # For the recipient to know which key to decrypt with
-
 
 # Tell faraday to use the middleware. Read more about it here: https://github.com/lostisland/faraday#advanced-middleware-usage
 Faraday.new('http://example.com') do |faraday|
@@ -133,7 +163,7 @@ response = conn.get('/')
 ### Rack middleware for incoming requests
 I've written a quite sloppy but totally usable rack middleware that validates every incoming request.
 
-#### General rack application
+#### General Rack application
 Sinatra for example
 ```ruby
 require 'http_signature/rack'
