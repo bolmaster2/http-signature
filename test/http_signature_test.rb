@@ -29,7 +29,8 @@ describe HTTPSignature do
           key: 'boom'
         )
 
-        expected = 'keyId="test-key",algorithm="hmac-sha256",headers="(request-target) host date",signature="gQI2QiFY/8BycVdSnkdCw6ww6HiJPQqnOPybmpSP9vU="'
+        expected_signature = 'ACBhXaKgSLFFB0EcX+ZgtmGTRTAZjn1KyoM7XPWfxbw='
+        expected = 'keyId="test-key",algorithm="hmac-sha256",headers="(request-target) host date",signature="'+expected_signature+'"'
 
         assert_equal expected, output
       end
@@ -52,8 +53,8 @@ describe HTTPSignature do
             key: 'boom',
             algorithm: 'hmac-sha512'
           )
-
-          expected = 'keyId="test-key",algorithm="hmac-sha512",headers="(request-target) host date",signature="zo91KBsZnvCWMI4oJC6tHufJHvw/MMuBrUuxkly1MgUEFhE0R30DET+eYLiEYRRwt4P+Pcc9rSAsGOX+Q8fuNQ=="'
+          expected_signature = 'lFH4bKAwPV6+8I8f4Zh65IaOk4LWDmz5aSJFGN/4AWSLZ/mAeEDYTYmqiPV8/EyCtwbcauqmSDR3eUZlSjpC+g=='
+          expected = 'keyId="test-key",algorithm="hmac-sha512",headers="(request-target) host date",signature="'+expected_signature+'"'
 
           assert_equal expected, output
         end
@@ -85,7 +86,7 @@ describe HTTPSignature do
         )
 
         string_to_sign = [
-          "(request-target): GET /?ok=god&boom=omg&wtf=lol",
+          "(request-target): get /?ok=god&boom=omg&wtf=lol",
           "host: bolmaster2.com",
           "date: Fri, 10 Nov 2017 12:19:48 GMT"
         ].join("\n")
@@ -131,7 +132,7 @@ describe HTTPSignature do
           key: OpenSSL::PKey::RSA.new(private_key)
         )
 
-        expected_signature = 'ATKY9c9VlKL4HfGc9D64qEVqnA90U9UGV8qxHDF9RWs20NPdgDMJyDQc8FJKSA/4/psTuaIDJM3MG2YOTzqTkVd3VY+580DXVVjJ0dW9wwwr8BMCmitJpCiAf0IOm+cGwcs29YdB7Xb+tjy38Qn6e8MG8wldZayH3AxEqz2FBPI='
+        expected_signature = 'HUxc9BS3P/kPhSmJo+0pQ4IsCo007vkv6bUm4Qehrx+B1Eo4Mq5/6KylET72ZpMUS80XvjlOPjKzxfeTQj4DiKbAzwJAb4HX3qX6obQTa00/qPDXlMepD2JtTw33yNnm/0xV7fQuvILN/ys+378Ysi082+4xBQFwvhNvSoVsGv4='
         expected = 'keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date",signature="'+expected_signature+'"'
 
         assert_equal expected, output
@@ -198,7 +199,7 @@ describe HTTPSignature do
           body: body
         )
 
-        expected_signature = 'P6yNZ1dOBMmuLEyPkhzINNP5GTy3kvM/b/epD9FcdHsihWevJBlR2om3Wd/X+bTHs9AztxZqjFkdQFyhs3Yo/rNie4rU8Ga/LAvInJTlpNGSmahkW6UMQTUsWRA8bFbfEMoTDgxMcXmu7tjcpdSDkOyow6nSjrekWw150Uss6nA='
+        expected_signature = 'Ef7MlxLXoBovhil3AlyjtBwAL9g4TN3tibLj7uuNB3CROat/9KaeQ4hW2NiJ+pZ6HQEOx9vYZAyi+7cmIkmJszJCut5kQLAwuX+Ms/mUFvpKlSo9StS2bMXDBNjOh4Auj774GFj4gwjS+3NhFeoqyr/MuN6HsEnkvn6zdgfE2i0='
         expected = 'keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="'+expected_signature+'"'
 
         assert_equal expected, output
@@ -224,7 +225,8 @@ describe HTTPSignature do
           algorithm: 'rsa-sha512'
         )
 
-        expected = 'keyId="test-key",algorithm="rsa-sha512",headers="(request-target) host date",signature="s0FPAbu2f49fjxa7Ia5rnjUPq/sRfTs+Xfl13Wqs92kDVIVOj7zY2qwbqQKe1pLfaimGwTT05HLiDFdbOFXiuylNTq7xI2l0JndNgIEdkJEITbQYPtIuakCfQosG1eQlsyYp2m2mLmrNURjoqyv9HkdKO6onchXc3lsou/Ne5rs="'
+        expected_signature = 'RfccrjiL2x43pc5wwM47EkHKO6/Vqn1bCFbbk70Tb4DggmChKZAl/lP+YmScOv550fqoctDHl0/4KXN59yko8knvPD8upAhxwegNiFqZB11n/0II+OkDAldKHlgMDfzW2+3Y2I169Nd/fGOV7iALOK8mA6wFSCFAWwbFp1PhAcI='
+        expected = 'keyId="test-key",algorithm="rsa-sha512",headers="(request-target) host date",signature="'+expected_signature+'"'
 
         assert_equal expected, output
       end
