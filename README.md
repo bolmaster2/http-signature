@@ -136,8 +136,8 @@ end
 ```
 
 ### Faraday middleware
-Example of using it with an outgoing faraday request. Basically you set the keys and tell faraday
-to use the middleware.
+Example of using it with an outgoing faraday request. IMO, this is the smoothest usage.
+Basically you set the keys and tell faraday to use the middleware.
 
 ```ruby
 require 'http_signature/faraday'
@@ -161,7 +161,7 @@ response = conn.get('/')
 ```
 
 ### Rack middleware for incoming requests
-I've written a quite sloppy but totally usable rack middleware that validates every incoming request.
+I've written a quite sloppy but totally usable rack middleware that validates incoming requests.
 
 #### General Rack application
 Sinatra for example
@@ -169,8 +169,10 @@ Sinatra for example
 require 'http_signature/rack'
 
 HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
-# You can exclude paths where you don't want to validate the signature:
-HTTPSignature::Rack.exclude_paths = ['/']
+# You can exclude paths where you don't want to validate the signature, it's using
+# regexp so you can use `*` and stuff like that. Just watch out so you don't exclude
+# more paths than intended. Regexp can trick you when you least expect it 👻.
+HTTPSignature::Rack.exclude_paths = ['/', '/hello/*']
 
 use HTTPSignature::Rack
 run MyApp
