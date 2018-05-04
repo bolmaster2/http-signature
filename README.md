@@ -6,6 +6,8 @@ Create and validate HTTP request signature according to this draft: https://tool
 Aims to only implement the creation and validation of the signature without any external dependencies.
 The idea is to implement adapters to popular http libraries to make it easy to use.
 
+__NOTE__: Only implements the `Signature` header and not the `Authorization` header, for now.
+
 ## Installation
 ```
 gem install http_signature
@@ -18,7 +20,9 @@ require 'http_signature'
 ```
 
 ### Basic
-The most basic usage without any extra headers. The default algorithm is `hmac-sha256`. This create the `Signature` header value. Next step is to add the value to the header and 💥 you're done!
+The most basic usage without any extra headers. The default algorithm is `hmac-sha256`. This create the `Signature` header value. Next step is to add the value to the header and 💥 you're done! Note that this isn't very usable in the real world as it's very easy to do a replay attack. Because there's no value
+that change. This is easy solved by adding the `Date` header which is recommended to add to every
+request.
 ```ruby
 HTTPSignature.create(
   url: 'https://example.com/foo',
@@ -29,9 +33,8 @@ HTTPSignature.create(
 ```
 
 ### With headers, query parameters and a body
-Uses both query parameters (in query string) and a `json` body as a `POST` request.
-Also shows how to set `rsa-sha256` as algorithm. The `digest` is as you see basically
-a `sha-256` digest of the request body.
+Uses both query string parameters and a `json` body as a `POST` request.
+Also shows how to set `rsa-sha256` as algorithm which signs with a private key.
 
 ```ruby
 params = {
@@ -44,7 +47,6 @@ body = '{"hello": "world"}'
 headers = {
   'date': 'Thu, 05 Jan 2014 21:31:40 GMT',
   'content-type': 'application/json',
-  'digest': HTTPSignature.create_digest(body),
   'content-length': body.length
 }
 
@@ -53,26 +55,11 @@ HTTPSignature.create(
   method: :post,
   query_string_params: params,
   headers: headers,
-  key_id: 'Test',
+  key_id: 'rsa-1',
   algorithm: 'rsa-sha256',
-  key: File.read('key.pem'),
+  key: File.read('key.pem'), # private key
   body: body
 )
-```
-
-### With digest header auto-added
-When digest header is omitted it's auto added as last header generated from the `body`:
-
-```ruby
-body = '{"foo": "bar"}'
-
-HTTPSignature.create(
-  url: 'https://example.com/foo',
-  key_id: 'Test',
-  key: 'secret 🙈',
-  body: body
-)
-# 'keyId="Test",algorithm="hmac-sha256",headers="(request-target) digest",signature="3Jm5jnCSKX3fYLd58RqRdafZKeuSbUEPhn7grCGx4vg="'
 ```
 
 ### Validate asymmetric signature
