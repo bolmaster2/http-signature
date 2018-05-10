@@ -1,12 +1,20 @@
 # HTTP Signature
 [![CircleCI](https://circleci.com/gh/bolmaster2/http-signature.svg?style=svg)](https://circleci.com/gh/bolmaster2/http-signature)
 
-Create and validate HTTP request signature according to this draft: https://tools.ietf.org/html/draft-cavage-http-signatures-08
+Create and validate HTTP request signature according to this draft: https://tools.ietf.org/html/draft-cavage-http-signatures-09
 
 Aims to only implement the creation and validation of the signature without any external dependencies.
 The idea is to implement adapters to popular http libraries to make it easy to use.
 
-__NOTE__: Only implements the `Signature` header and not the `Authorization` header, for now.
+__NOTE__: Implements the `Signature` header and not the `Authorization` header in the examples and in the
+middlewares. Though the only difference is that it's another header and prefixed with `Signature` like this:
+```
+Authorization: Signature keyId="rsa-key-1",algorithm="rsa-sha256",headers="(request-target)",signature="Base64(RSA-SHA256(signing string))"
+```
+vs the signature header looking like:
+```
+Signature: keyId="rsa-key-1",algorithm="rsa-sha256",headers="(request-target)",signature="Base64(RSA-SHA256(signing string))"
+```
 
 ## Installation
 ```
@@ -206,3 +214,8 @@ This project is licensed under the terms of the [MIT license](https://opensource
 - When creating the signing string, follow the spec exactly:
   https://tools.ietf.org/html/draft-cavage-http-signatures-08#section-2.3,
   e.g, concatenate multiple instances of the same headers and remove surrounding whitespaces
+
+## Why/when should I use this?
+In short: When you need to make sure that the request or response has not been tampered with (_integrity_). And you can be sure that the request was sent by someone that had the key (_authenticity_). Don't confuse this with encryption, the signed message is not encrypted. It's just _signed_. You could add a layer of encryption on top of this. Or just use HTTPS and you're _kinda safe_ for not that much hassle, which is totally fine in most cases.
+
+[Read more about HMAC here](https://security.stackexchange.com/questions/20129/how-and-when-do-i-use-hmac/20301), even though you can sign your messages with RSA as well, but it's the same principle.
