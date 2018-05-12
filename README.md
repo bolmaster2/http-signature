@@ -27,7 +27,7 @@ gem install http_signature
 require 'http_signature'
 ```
 
-### Basic
+### Creating the signature header
 The most basic usage without any extra headers. The default algorithm is `hmac-sha256`. This create the `Signature` header value. Next step is to add the value to the header and 💥 you're done! Note that this isn't very usable in the real world as it's very easy to do a replay attack. Because there's no value
 that change. This is easy solved by adding the `Date` header which is recommended to add to every
 request.
@@ -100,7 +100,7 @@ HTTPSignature.valid?(
 )
 ```
 
-## Example usage
+## Example usage on the request flow
 ### NET::HTTP
 Example of using it with `NET::HTTP`. There's no real integration written so it's basically just
 getting the request object's data and create the signature and adding it to the headers.
@@ -156,7 +156,10 @@ response = conn.get('/')
 ```
 
 ### Rack middleware for incoming requests
-I've written a quite sloppy but totally usable rack middleware that validates incoming requests.
+Rack middlewares sits in between your app and the HTTP request and validate the signature before hitting your app. Read more about [rack middlewares here](https://codenoble.com/blog/understanding-rack-middleware/).
+```
+Client <-> Middleware -> App
+```
 
 #### General Rack application
 Sinatra for example
