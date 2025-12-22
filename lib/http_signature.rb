@@ -17,15 +17,21 @@ module HTTPSignature
   class MissingComponent < SignatureError; end
   class UnsupportedAlgorithm < SignatureError; end
 
-  Algorithm = Struct.new(:type, :digest, :openssl_digest)
+  Algorithm = Struct.new(:type, :digest, :openssl_digest, :curve)
   ALGORITHMS = {
+    # HMAC algorithms (Section 3.3.3)
     'hmac-sha256' => Algorithm.new(:hmac, 'SHA256', OpenSSL::Digest::SHA256.new),
     'hmac-sha512' => Algorithm.new(:hmac, 'SHA512', OpenSSL::Digest::SHA512.new),
+    # RSA-PSS algorithms (Section 3.3.1)
     'rsa-pss-sha256' => Algorithm.new(:rsa_pss, 'SHA256', OpenSSL::Digest::SHA256.new),
     'rsa-pss-sha512' => Algorithm.new(:rsa_pss, 'SHA512', OpenSSL::Digest::SHA512.new),
-    # Kept for compatibility if callers request pkcs#1 directly
-    'rsa-sha256' => Algorithm.new(:rsa, 'SHA256', OpenSSL::Digest::SHA256.new),
-    'rsa-sha512' => Algorithm.new(:rsa, 'SHA512', OpenSSL::Digest::SHA512.new)
+    # RSASSA-PKCS1-v1_5 algorithms (Section 3.3.2)
+    'rsa-v1_5-sha256' => Algorithm.new(:rsa, 'SHA256', OpenSSL::Digest::SHA256.new),
+    # ECDSA algorithms (Section 3.3.4, 3.3.5)
+    'ecdsa-p256-sha256' => Algorithm.new(:ecdsa, 'SHA256', OpenSSL::Digest::SHA256.new, 'prime256v1'),
+    'ecdsa-p384-sha384' => Algorithm.new(:ecdsa, 'SHA384', OpenSSL::Digest::SHA384.new, 'secp384r1'),
+    # EdDSA algorithm (Section 3.3.6)
+    'ed25519' => Algorithm.new(:ed25519, nil, nil)
   }.freeze
 
   class << self
@@ -244,14 +250,20 @@ module HTTPSignature
     when :hmac
       OpenSSL::HMAC.digest(algorithm.digest, key, base_string)
     when :rsa_pss
-      rsa_key(key).sign_pss(
-        algorithm.openssl_digest,
-        base_string,
-        salt_length: :max,
-        mgf1_hash: algorithm.openssl_digest
-      )
+      pkey = rsa_key(key)
+      # Use generic sign with RSA-PSS options (works with all key types)
+      pkey.sign(algorithm.digest, base_string,
+        rsa_padding_mode: 'pss',
+        rsa_pss_saltlen: -1,
+        rsa_mgf1_md: algorithm.digest)
     when :rsa
       rsa_key(key).sign(algorithm.openssl_digest, base_string)
+    when :ecdsa
+      ec_key = ec_key(key)
+      der_signature = ec_key.sign(algorithm.openssl_digest, base_string)
+      ecdsa_der_to_raw(der_signature, algorithm.curve)
+    when :ed25519
+      ed25519_key(key).sign(nil, base_string)
     else
       raise UnsupportedAlgorithm, "Unsupported algorithm #{algorithm}"
     end
@@ -263,15 +275,20 @@ module HTTPSignature
       expected = OpenSSL::HMAC.digest(algorithm.digest, key, base_string)
       ::Rack::Utils.secure_compare(expected, signature_bytes)
     when :rsa_pss
-      rsa_key(key).verify_pss(
-        algorithm.openssl_digest,
-        signature_bytes,
-        base_string,
-        salt_length: :max,
-        mgf1_hash: algorithm.openssl_digest
-      )
+      pkey = rsa_key(key)
+      # Use generic verify with RSA-PSS options (works with all key types)
+      pkey.verify(algorithm.digest, signature_bytes, base_string,
+        rsa_padding_mode: 'pss',
+        rsa_pss_saltlen: -1,
+        rsa_mgf1_md: algorithm.digest)
     when :rsa
       rsa_key(key).verify(algorithm.openssl_digest, signature_bytes, base_string)
+    when :ecdsa
+      ec_key = ec_key(key)
+      der_signature = ecdsa_raw_to_der(signature_bytes, algorithm.curve)
+      ec_key.verify(algorithm.openssl_digest, der_signature, base_string)
+    when :ed25519
+      ed25519_key(key).verify(nil, signature_bytes, base_string)
     else
       false
     end
@@ -312,6 +329,48 @@ module HTTPSignature
   end
 
   def self.rsa_key(key)
-    key.is_a?(OpenSSL::PKey::RSA) ? key : OpenSSL::PKey::RSA.new(key)
+    return key if key.is_a?(OpenSSL::PKey::RSA) || key.is_a?(OpenSSL::PKey::PKey)
+
+    OpenSSL::PKey.read(key)
+  end
+
+  def self.ec_key(key)
+    key.is_a?(OpenSSL::PKey::EC) ? key : OpenSSL::PKey::EC.new(key)
+  end
+
+  def self.ed25519_key(key)
+    return key if key.is_a?(OpenSSL::PKey::PKey)
+
+    OpenSSL::PKey.read(key)
+  end
+
+  # Convert ECDSA DER signature to raw (r || s) format per RFC 9421
+  def self.ecdsa_der_to_raw(der_signature, curve)
+    byte_size = curve == 'prime256v1' ? 32 : 48
+
+    asn1 = OpenSSL::ASN1.decode(der_signature)
+    r = asn1.value[0].value.to_s(2)
+    s = asn1.value[1].value.to_s(2)
+
+    r = r.rjust(byte_size, "\x00")[-byte_size, byte_size]
+    s = s.rjust(byte_size, "\x00")[-byte_size, byte_size]
+
+    r + s
+  end
+
+  # Convert raw (r || s) signature to ECDSA DER format
+  def self.ecdsa_raw_to_der(raw_signature, curve)
+    byte_size = curve == 'prime256v1' ? 32 : 48
+
+    r_bytes = raw_signature[0, byte_size]
+    s_bytes = raw_signature[byte_size, byte_size]
+
+    r = OpenSSL::BN.new(r_bytes, 2)
+    s = OpenSSL::BN.new(s_bytes, 2)
+
+    OpenSSL::ASN1::Sequence.new([
+      OpenSSL::ASN1::Integer.new(r),
+      OpenSSL::ASN1::Integer.new(s)
+    ]).to_der
   end
 end
