@@ -21,10 +21,10 @@ class HTTPSignature::Faraday < Faraday::Middleware
       end
 
     # Choose which headers to sign
-    filtered_headers = %w[Host Date Digest]
+    filtered_headers = %w[Host Date Content-Digest]
     headers_to_sign = env[:request_headers].select { |k, _v| filtered_headers.include?(k.to_s) }
 
-    signature = HTTPSignature.create(
+    signature_headers = HTTPSignature.create(
       url: env[:url],
       method: env[:method],
       headers: headers_to_sign,
@@ -34,7 +34,9 @@ class HTTPSignature::Faraday < Faraday::Middleware
       body: body
     )
 
-    env[:request_headers]['Signature'] = signature
+    signature_headers.each do |header, value|
+      env[:request_headers][header] = value
+    end
 
     @app.call(env)
   end

@@ -1,19 +1,14 @@
 # HTTP Signature
 [![CircleCI](https://circleci.com/gh/bolmaster2/http-signature.svg?style=svg)](https://circleci.com/gh/bolmaster2/http-signature)
 
-Create and validate HTTP request signature according to this draft: https://tools.ietf.org/html/draft-cavage-http-signatures-09
+Create and validate HTTP Message Signatures per [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) using the `Signature-Input` and `Signature` headers.
 
-Aims to only implement the creation and validation of the signature without any external dependencies.
-The idea is to implement adapters to popular http libraries to make it easy to use.
+Aims to only implement the creation and validation of signatures without any external dependencies. Adapters are provided for common HTTP libraries.
 
-__NOTE__: Implements the `Signature` header and not the `Authorization` header in the examples and in the
-middlewares. Though the only difference is that it's another header and prefixed with `Signature` like this:
+__NOTE__: RFC 9421 signs components via two headers:
 ```
-Authorization: Signature keyId="rsa-key-1",algorithm="rsa-sha256",headers="(request-target)",signature="Base64(RSA-SHA256(signing string))"
-```
-vs the signature header looking like:
-```
-Signature: keyId="rsa-key-1",algorithm="rsa-sha256",headers="(request-target)",signature="Base64(RSA-SHA256(signing string))"
+Signature-Input: sig1=("@method" "@authority" "@target-uri" "date");created=...
+Signature: sig1=:BASE64_SIGNATURE_BYTES:
 ```
 
 ## Installation
@@ -27,22 +22,27 @@ gem install http_signature
 require 'http_signature'
 ```
 
-### Creating the signature header
-The most basic usage without any extra headers. The default algorithm is `hmac-sha256`. This create the `Signature` header value. Next step is to add the value to the header and 💥 you're done! Note that this isn't very usable in the real world as it's very easy to do a replay attack. Because there's no value
-that change. This is easy solved by adding the `Date` header which is recommended to add to every
-request.
+### Creating signature headers
+`HTTPSignature.create` returns both `Signature-Input` and `Signature`. The default algorithm is `hmac-sha256`.
 ```ruby
-HTTPSignature.create(
-  url: 'https://example.com/foo',
+headers = { 'date' => 'Tue, 20 Apr 2021 02:07:55 GMT' }
+
+sig_headers = HTTPSignature.create(
+  url: 'https://example.com/foo?pet=dog',
+  method: :get,
+  headers: headers,
   key_id: 'Test',
-  key: 'secret 🙈'
+  key: 'secret 🙈',
+  covered_components: %w[@method @authority @target-uri date],
+  created: 1_618_884_473
 )
-# 'keyId="Test",algorithm="hmac-sha256",headers="(request-target)",signature="OQ/dHqRW9vFmrW/RCHg7O2Fqx+3uqxJw81p6k9Rcyo4="'
+
+request['Signature-Input'] = sig_headers['Signature-Input']
+request['Signature'] = sig_headers['Signature']
 ```
 
 ### With headers, query parameters and a body
-Uses both query string parameters and a `json` body as a `POST` request.
-Also shows how to set `rsa-sha256` as algorithm which signs with a private key.
+When `content-digest` is covered, it is computed automatically from the body.
 
 ```ruby
 params = {
@@ -58,45 +58,33 @@ headers = {
   'content-length': body.length
 }
 
-HTTPSignature.create(
+sig_headers = HTTPSignature.create(
   url: 'https://example.com/foo',
   method: :post,
   query_string_params: params,
   headers: headers,
   key_id: 'rsa-1',
-  algorithm: 'rsa-sha256',
+  algorithm: 'rsa-pss-sha256',
   key: File.read('key.pem'), # private key
-  body: body
+  body: body,
+  covered_components: %w[@method @authority @target-uri date content-digest]
 )
+
+request['Signature-Input'] = sig_headers['Signature-Input']
+request['Signature'] = sig_headers['Signature']
 ```
 
 ### Validate asymmetric signature
-With an asymmetric algorithm you can't just recreate the same header and see if they
-check out, because you need the private key to do that and because the one validating
-the signature should only have access to the public key, you need to validate it with that.
-
-Imagine the incoming HTTP request looks like this:
-```
-POST /foo HTTP/1.1
-Host: example.com
-Date: Thu, 05 Jan 2014 21:31:40 GMT
-Content-Type: application/json
-Content-Length: 18
-Digest: SHA-256=X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=
-Signature: keyId="Test-1",algorithm="rsa-sha256",headers="(request-target) host date content-type content-length digest",signature="YGPVM1tGHD7CHgTmroy9apLtVazdESzMl4vj1koYHNCMmTEDor4Om5TDZDFaJdny5dF3gq+PQQuPwyknNEvACmSjwVXzljPFxaY/JMZTqAdD0yHTP2Rx0Y/J4GwgKARWTZUmccfVYsXp86PhIlCymzleZzYCzj6shyg9NB7Ht+k="
-
-{"hello": "world"}
-```
-
-Let's assume we have this request ☝️ in a `request` object for the sake of the example:
+Pass the incoming `Signature-Input` and `Signature` headers and the public key.
 ```ruby
 HTTPSignature.valid?(
-  url: request.url,
+  url: request.url, # full URL including authority
   method: request.method,
   headers: request.headers,
   body: request.body,
-  key: OpenSSL::PKey::RSA.new('public_key.pem'),
-  algorithm: 'rsa-sha256'
+  key: OpenSSL::PKey::RSA.new('public_key.pem'), # public key
+  signature_input_header: request.get_header('Signature-Input'),
+  signature_header: request.get_header('Signature')
 )
 ```
 
@@ -114,7 +102,7 @@ uri = URI('http://example.com/hello')
 Net::HTTP.start(uri.host, uri.port) do |http|
   request = Net::HTTP::Get.new(uri)
 
-  signature = HTTPSignature.create(
+  sig_headers = HTTPSignature.create(
     url: request.uri,
     method: request.method,
     headers: request.each_header.map { |k, v| [k, v] }.to_h,
@@ -124,15 +112,15 @@ Net::HTTP.start(uri.host, uri.port) do |http|
     body: request.body ? request.body : ''
   )
 
-  request['Signature'] = signature
+  request['Signature-Input'] = sig_headers['Signature-Input']
+  request['Signature'] = sig_headers['Signature']
 
   response = http.request(request) # Net::HTTPResponse
 end
 ```
 
 ### Faraday middleware
-Example of using it with an outgoing faraday request. IMO, this is the smoothest usage.
-Basically you set the keys and tell faraday to use the middleware.
+Outgoing requests automatically receive `Signature-Input` and `Signature`.
 
 ```ruby
 require 'http_signature/faraday'
@@ -146,13 +134,12 @@ Faraday.new('http://example.com') do |faraday|
   faraday.adapter(Faraday.default_adapter)
 end
 
-# Now this request will contain the `Signature` header
+# Now this request will contain the `Signature-Input` and `Signature` headers
 response = conn.get('/')
 
 # Request looking like:
-# GET / HTTP/1.1
-# User-Agent: Faraday v0.15.0
-# Signature: keyId="key-1",algorithm="hmac-sha256",headers="(request-target) date",signature="EzFa4vb0z+VFF8VYt9qQlzF9MTf5Izptc02OJ7aajnU="
+# Signature-Input: sig1=("@method" "@authority" "@target-uri" "date");created=...
+# Signature: sig1=:BASE64_SIGNATURE:
 ```
 
 ### Rack middleware for incoming requests
@@ -208,15 +195,6 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 
 ## License
 This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
-
-## Todo
-- Add more example of use with different http libraries
-- Refactor `.valid?` to support all algorithms
-- Implement algorithms:
-  - ecdsa-sha256
-- When creating the signing string, follow the spec exactly:
-  https://tools.ietf.org/html/draft-cavage-http-signatures-08#section-2.3,
-  e.g, concatenate multiple instances of the same headers and remove surrounding whitespaces
 
 ## Why/when should I use this?
 In short: When you need to make sure that the request or response has not been tampered with (_integrity_). And you can be sure that the request was sent by someone that had the key (_authenticity_). Don't confuse this with encryption, the signed message is not encrypted. It's just _signed_. You could add a layer of encryption on top of this. Or just use HTTPS and you're _kinda safe_ for not that much hassle, which is totally fine in most cases.

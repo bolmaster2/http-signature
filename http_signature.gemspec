@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.authors       = ['Joel Larsson']
   spec.email         = ['bolmaster2@gmail.com']
 
-  spec.summary       = 'Create and validate HTTP request signature'
-  spec.description   = 'Create and validate HTTP request signature according to draft: https://tools.ietf.org/html/draft-cavage-http-signatures-09'
+  spec.summary       = 'Create and validate HTTP Message Signatures'
+  spec.description   = 'Create and validate HTTP Message Signatures according to RFC 9421: https://www.rfc-editor.org/rfc/rfc9421.html'
   spec.homepage      = 'https://github.com/bolmaster2/http-signature'
   spec.license       = 'MIT'
 
@@ -18,8 +18,13 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ['lib']
 
+  spec.required_ruby_version = '>= 3.4.8'
+
   spec.add_development_dependency 'bundler'
   spec.add_development_dependency 'rake'
-  spec.add_development_dependency 'minitest'
-  spec.add_development_dependency 'faraday'
+  spec.add_development_dependency 'minitest', '>= 5.24'
+  spec.add_development_dependency 'rack'
+  spec.add_development_dependency 'faraday', '>= 2.7'
+
+  spec.add_dependency 'base64'
 end

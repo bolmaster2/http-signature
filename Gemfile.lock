@@ -1,26 +1,43 @@
 PATH
   remote: .
   specs:
-    http_signature (0.0.7)
+    http_signature (1.0.0)
+      base64
 
 GEM
   remote: https://rubygems.org/
   specs:
-    faraday (0.15.0)
-      multipart-post (>= 1.2, < 3)
-    minitest (5.10.3)
-    multipart-post (2.0.0)
+    base64 (0.3.0)
+    faraday (2.14.0)
+      faraday-net_http (>= 2.0, < 3.5)
+      json
+      logger
+    faraday-net_http (3.4.2)
+      net-http (~> 0.5)
+    json (2.18.0)
+    logger (1.7.0)
+    minitest (6.0.0)
+      prism (~> 1.5)
+    net-http (0.9.1)
+      uri (>= 0.11.1)
+    prism (1.7.0)
+    rack (3.2.4)
     rake (12.2.1)
+    uri (1.1.1)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
   bundler
-  faraday
+  faraday (>= 2.7)
   http_signature!
-  minitest
+  minitest (>= 5.24)
+  rack
   rake
 
+RUBY VERSION
+  ruby 3.4.8
+
 BUNDLED WITH
-   1.16.1
+  4.0.2
