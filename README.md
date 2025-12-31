@@ -164,15 +164,25 @@ run MyApp
 ```
 
 #### Rails
-Checkout [this documentation](http://guides.rubyonrails.org/rails_on_rack.html). But in short, add this inside the config block:
+Checkout [this documentation](http://guides.rubyonrails.org/rails_on_rack.html).
+
+TL;DR: Add the middleware in your config:
 ```ruby
-require 'http_signature/rack' # This doesn't have to be inside the block
-config.middleware.use HTTPSignature::Rack
+# config/environments/production.rb
+
+require 'http_signature/rack'
+
+Rails.application.configure do
+  # ...
+  config.middleware.use HTTPSignature::Rack
+  # ...
+end
 ```
 
-Don't forget to set the keys somewhere, an initializer should be suitable. Multiple keys
-are supported to be able to easily be rotated.
+Set the keys in an initializer:
 ```ruby
+# config/initializers/http_signature.rb
+
 HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
 ```
 
