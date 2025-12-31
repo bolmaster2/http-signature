@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-require 'minitest/autorun'
-require './lib/http_signature'
+require_relative 'test_helper'
 
 class HTTPSignatureTest < Minitest::Test
   def key_path(filename)

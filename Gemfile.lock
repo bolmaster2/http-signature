@@ -8,6 +8,7 @@ GEM
   remote: https://rubygems.org/
   specs:
     base64 (0.3.0)
+    docile (1.4.1)
     faraday (2.14.0)
       faraday-net_http (>= 2.0, < 3.5)
       json
@@ -23,6 +24,12 @@ GEM
     prism (1.7.0)
     rack (3.2.4)
     rake (13.3.1)
+    simplecov (0.22.0)
+      docile (~> 1.1)
+      simplecov-html (~> 0.11)
+      simplecov_json_formatter (~> 0.1)
+    simplecov-html (0.13.2)
+    simplecov_json_formatter (0.1.4)
     uri (1.1.1)
 
 PLATFORMS
@@ -35,6 +42,7 @@ DEPENDENCIES
   minitest (>= 5.24)
   rack
   rake
+  simplecov
 
 RUBY VERSION
   ruby 3.4.8
