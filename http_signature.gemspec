@@ -26,6 +26,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rack'
   spec.add_development_dependency 'faraday', '>= 2.7'
   spec.add_development_dependency 'simplecov'
+  spec.add_development_dependency 'actionpack', '>= 6.1'
 
   spec.add_dependency 'base64'
 end
