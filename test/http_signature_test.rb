@@ -8,7 +8,7 @@ class HTTPSignatureTest < Minitest::Test
   end
 
   # RFC 9421 Appendix B.1.5 - Example Shared Secret
-  def test_shared_secret
+  def shared_secret
     Base64.decode64(File.read(key_path('test_shared_secret.txt')))
   end
 
@@ -77,7 +77,7 @@ class HTTPSignatureTest < Minitest::Test
       method: :post,
       headers: default_headers,
       key_id: 'test-shared-secret',
-      key: test_shared_secret,
+      key: shared_secret,
       algorithm: 'hmac-sha256',
       covered_components: %w[@method @authority @target-uri date],
       created: 1_618_884_473
@@ -92,7 +92,7 @@ class HTTPSignatureTest < Minitest::Test
       url: default_url,
       method: :post,
       headers:,
-      key: test_shared_secret
+      key: shared_secret
     )
   end
 
@@ -245,7 +245,7 @@ class HTTPSignatureTest < Minitest::Test
       headers:,
       body:,
       key_id: 'test',
-      key: test_shared_secret
+      key: shared_secret
     )
 
     assert_includes sig_headers['Signature-Input'], 'content-digest'
@@ -257,7 +257,7 @@ class HTTPSignatureTest < Minitest::Test
         url: 'https://example.com/test',
         method: :get,
         headers: {},
-        key: test_shared_secret,
+        key: shared_secret,
         covered_components: %w[date]
       )
     end
@@ -269,7 +269,7 @@ class HTTPSignatureTest < Minitest::Test
       method: :post,
       headers: default_headers,
       key_id: 'test-shared-secret',
-      key: test_shared_secret,
+      key: shared_secret,
       algorithm: 'hmac-sha256',
       covered_components: %w[@method @authority]
     )
@@ -280,7 +280,7 @@ class HTTPSignatureTest < Minitest::Test
       url: default_url,
       method: :get, # Changed from :post
       headers:,
-      key: test_shared_secret
+      key: shared_secret
     )
   end
 
