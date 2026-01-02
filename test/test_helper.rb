@@ -4,6 +4,7 @@ if ENV['COVERAGE']
   require 'simplecov'
   SimpleCov.start do
     add_filter '/test/'
+    minimum_coverage 85
   end
 end
 
