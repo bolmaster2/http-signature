@@ -153,7 +153,9 @@ Here is how it could be used with sinatra:
 ```ruby
 require 'http_signature/rack'
 
-HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
+HTTPSignature.configure do |config|
+  config.keys = [{ id: 'key-1', value: 'MySecureKey' }]
+end
 HTTPSignature::Rack.exclude_paths = ['/', '/hello/*']
 
 use HTTPSignature::Rack
@@ -178,7 +180,9 @@ Set the keys in an initializer
 ```ruby
 # config/initializers/http_signature.rb
 
-HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
+HTTPSignature.configure do |config|
+  config.keys = [{ id: 'key-1', value: 'MySecureKey' }]
+end
 ```
 
 

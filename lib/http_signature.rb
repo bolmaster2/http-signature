@@ -9,6 +9,7 @@ require 'rack/utils'
 
 # Implements HTTP Message Signatures per RFC 9421.
 module HTTPSignature
+  Config = Struct.new(:keys)
   DEFAULT_LABEL = 'sig1'
   DEFAULT_ALGORITHM = 'hmac-sha256'
   DEFAULT_COMPONENTS = %w[@method @authority @target-uri].freeze
@@ -34,17 +35,24 @@ module HTTPSignature
     'ed25519' => Algorithm.new(:ed25519, nil, nil)
   }.freeze
 
-  class << self
-    attr_reader :keys
+  # Configure key store used by Rack middleware
+  #
+  # Example:
+  #   HTTPSignature.configure do |config|
+  #     config.keys = [{ id: 'key-1', value: 'MySecureKey' }]
+  #   end
+  def self.configure
+    @config ||= Config.new
+    yield(@config) if block_given?
+    @config
   end
 
-  # Configure key store used by Rack middleware
-  def self.config(**options)
-    @keys = options[:keys]
+  def self.keys
+    @config&.keys
   end
 
   def self.key(id)
-    key = @keys.select { |o| o[:id] == id }.first
+    key = keys&.find { |o| o[:id] == id }
     key&.dig(:value) || (raise SignatureError, "Key with id #{id} could not be found")
   end
 
@@ -326,9 +334,9 @@ module HTTPSignature
   end
 
   def self.key_from_store(key_id)
-    return unless defined?(@keys) && @keys
+    return unless keys && key_id
 
-    key(key_id) if key_id
+    key(key_id)
   end
 
   def self.rsa_key(key)

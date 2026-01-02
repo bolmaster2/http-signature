@@ -10,7 +10,9 @@ describe HTTPSignature::Rack do
   end
 
   it 'verifies an incoming request with valid signature' do
-    HTTPSignature.config(keys: [{ id: 'key-1', value: hmac_key }])
+    HTTPSignature.configure do |config|
+      config.keys = [{ id: 'key-1', value: hmac_key }]
+    end
     date = 'Tue, 20 Apr 2021 02:07:55 GMT'
     url = 'http://example.com/hello?pet=dog'
 

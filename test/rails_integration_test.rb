@@ -35,7 +35,9 @@ class RailsIntegrationTest < ActionDispatch::IntegrationTest
   end
 
   setup do
-    HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
+    HTTPSignature.configure do |config|
+      config.keys = [{ id: 'key-1', value: 'MySecureKey' }]
+    end
   end
 
   test 'allows requests with a valid signature' do
