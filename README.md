@@ -12,7 +12,8 @@ Signature: sig1=:BASE64_SIGNATURE_BYTES:
 ```
 
 ## Installation
-```
+
+```shell
 gem install http_signature
 ```
 
@@ -22,7 +23,8 @@ gem install http_signature
 require 'http_signature'
 ```
 
-### Creating signature headers
+### Create signature
+
 `HTTPSignature.create` returns both `Signature-Input` and `Signature`. The default algorithm is `hmac-sha256`.
 ```ruby
 headers = { 'date' => 'Tue, 20 Apr 2021 02:07:55 GMT' }
@@ -32,7 +34,7 @@ sig_headers = HTTPSignature.create(
   method: :get,
   headers: headers,
   key_id: 'Test',
-  key: 'secret 🙈',
+  key: 'secret',
   covered_components: %w[@method @authority @target-uri date],
   created: 1_618_884_473
 )
@@ -41,7 +43,7 @@ request['Signature-Input'] = sig_headers['Signature-Input']
 request['Signature'] = sig_headers['Signature']
 ```
 
-### With headers, query parameters and a body
+#### With headers, query parameters and a body
 When `content-digest` is covered, it is computed automatically from the body.
 
 ```ruby
@@ -74,24 +76,22 @@ request['Signature-Input'] = sig_headers['Signature-Input']
 request['Signature'] = sig_headers['Signature']
 ```
 
-### Validate asymmetric signature
-Pass the incoming `Signature-Input` and `Signature` headers and the public key.
+### Validate signature
+
+Call `valid?` with the incoming request headers (including `Signature-Input` and `Signature`) and the key.
+
 ```ruby
 HTTPSignature.valid?(
-  url: request.url, # full URL including authority
-  method: request.method,
-  headers: request.headers,
-  body: request.body,
-  key: OpenSSL::PKey::RSA.new('public_key.pem'), # public key
-  signature_input_header: request.get_header('Signature-Input'),
-  signature_header: request.get_header('Signature')
+  url: "https://example.com/foo",
+  method: :get,
+  headers: headers,
+  key: "secret"
 )
 ```
 
-## Example usage on the request flow
+## Outgoing examples
+
 ### NET::HTTP
-Example of using it with `NET::HTTP`. There's no real integration written so it's basically just
-getting the request object's data and create the signature and adding it to the headers.
 
 ```ruby
 require 'net/http'
@@ -119,16 +119,17 @@ Net::HTTP.start(uri.host, uri.port) do |http|
 end
 ```
 
-### Faraday middleware
-Outgoing requests automatically receive `Signature-Input` and `Signature`.
+### Faraday
+
+As a faraday middleware
 
 ```ruby
 require 'http_signature/faraday'
 
-HTTPSignature::Faraday.key = 'MySecureKey' # This should be long and random
-HTTPSignature::Faraday.key_id = 'key-1' # For the recipient to know which key to decrypt with
+# Specify key
+HTTPSignature::Faraday.key = 'secret'
+HTTPSignature::Faraday.key_id = 'key-1'
 
-# Tell faraday to use the middleware. Read more about it here: https://github.com/lostisland/faraday#advanced-middleware-usage
 Faraday.new('http://example.com') do |faraday|
   faraday.use(HTTPSignature::Faraday)
   faraday.adapter(Faraday.default_adapter)
@@ -142,44 +143,38 @@ response = conn.get('/')
 # Signature: sig1=:BASE64_SIGNATURE:
 ```
 
-### Rack middleware for incoming requests
-Rack middlewares sits in between your app and the HTTP request and validate the signature before hitting your app. Read more about [rack middlewares here](https://codenoble.com/blog/understanding-rack-middleware/).
-```
-Client <-> Middleware -> App
-```
+## Incoming request examples
 
-#### General Rack application
-Sinatra for example
+### Rack middleware
+Rack middlewares sits in between your app and the HTTP request and validate the signature before hitting your app. Read more about [rack middlewares here](https://codenoble.com/blog/understanding-rack-middleware/).
+
+Here is how it could be used with sinatra:
+
 ```ruby
 require 'http_signature/rack'
 
 HTTPSignature.config(keys: [{ id: 'key-1', value: 'MySecureKey' }])
-# You can exclude paths where you don't want to validate the signature, it's using
-# regexp so you can use `*` and stuff like that. Just watch out so you don't exclude
-# more paths than intended. Regexp can trick you when you least expect it 👻.
 HTTPSignature::Rack.exclude_paths = ['/', '/hello/*']
 
 use HTTPSignature::Rack
 run MyApp
 ```
 
-#### Rails
-Checkout [this documentation](http://guides.rubyonrails.org/rails_on_rack.html).
-
-TL;DR: Add the middleware in your config:
+### Rails
+Opt-in per controller/action using a before_action.
 ```ruby
-# config/environments/production.rb
+# app/controllers/api/base_controller.rb
 
-require 'http_signature/rack'
+require 'http_signature/rails'
 
-Rails.application.configure do
-  # ...
-  config.middleware.use HTTPSignature::Rack
-  # ...
+class Api::BaseController < ApplicationController
+  include HTTPSignature::Rails::Controller
+
+  before_action :verify_http_signature!
 end
 ```
 
-Set the keys in an initializer:
+Set the keys in an initializer
 ```ruby
 # config/initializers/http_signature.rb
 
