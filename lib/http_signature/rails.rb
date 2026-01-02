@@ -12,22 +12,20 @@ module HTTPSignature
 
       # Use as a Rails before_action to enforce HTTP Message Signatures on an action.
       def verify_http_signature!
-        signature_input_header = request.get_header('HTTP_SIGNATURE_INPUT') || request.headers['Signature-Input']
-        signature_header = request.get_header('HTTP_SIGNATURE') || request.headers['Signature']
+        request_headers = normalized_request_headers
+        signature_input_header = request_headers['signature-input']
+        signature_header = request_headers['signature']
 
         return render status: :unauthorized, plain: 'No signature header' unless signature_input_header && signature_header
 
         request_body = read_request_body
-        request_headers = normalized_request_headers
 
         valid_signature = HTTPSignature.valid?(
           url: request.url,
           method: request.request_method,
           headers: request_headers,
           body: request_body || '',
-          key_resolver: ->(key_id) { HTTPSignature.key(key_id) },
-          signature_input_header: signature_input_header,
-          signature_header: signature_header
+          key_resolver: ->(key_id) { HTTPSignature.key(key_id) }
         )
 
         return if valid_signature

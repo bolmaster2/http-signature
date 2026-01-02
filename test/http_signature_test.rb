@@ -86,13 +86,13 @@ class HTTPSignatureTest < Minitest::Test
     assert sig_headers['Signature-Input']
     assert sig_headers['Signature']
 
+    headers = default_headers.merge(sig_headers)
+
     assert HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers: default_headers,
-      key: test_shared_secret,
-      signature_input_header: sig_headers['Signature-Input'],
-      signature_header: sig_headers['Signature']
+      headers:,
+      key: test_shared_secret
     )
   end
 
@@ -113,14 +113,14 @@ class HTTPSignatureTest < Minitest::Test
     assert sig_headers['Signature-Input']
     assert sig_headers['Signature']
 
+    headers = default_headers.merge(sig_headers)
+
     assert HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers: default_headers,
+      headers:,
       body: default_body,
-      key: rsa_pss_public_key,
-      signature_input_header: sig_headers['Signature-Input'],
-      signature_header: sig_headers['Signature']
+      key: rsa_pss_public_key
     )
   end
 
@@ -140,13 +140,13 @@ class HTTPSignatureTest < Minitest::Test
     assert sig_headers['Signature-Input']
     assert sig_headers['Signature']
 
+    headers = default_headers.merge(sig_headers)
+
     assert HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers: default_headers,
-      key: rsa_public_key,
-      signature_input_header: sig_headers['Signature-Input'],
-      signature_header: sig_headers['Signature']
+      headers:,
+      key: rsa_public_key
     )
   end
 
@@ -166,13 +166,13 @@ class HTTPSignatureTest < Minitest::Test
     assert sig_headers['Signature-Input']
     assert sig_headers['Signature']
 
+    headers = default_headers.merge(sig_headers)
+
     assert HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers: default_headers,
-      key: ecc_p256_public_key,
-      signature_input_header: sig_headers['Signature-Input'],
-      signature_header: sig_headers['Signature']
+      headers:,
+      key: ecc_p256_public_key
     )
   end
 
@@ -192,13 +192,13 @@ class HTTPSignatureTest < Minitest::Test
     assert sig_headers['Signature-Input']
     assert sig_headers['Signature']
 
+    headers = default_headers.merge(sig_headers)
+
     assert HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers: default_headers,
-      key: ecc_p384_public_key,
-      signature_input_header: sig_headers['Signature-Input'],
-      signature_header: sig_headers['Signature']
+      headers:,
+      key: ecc_p384_public_key
     )
   end
 
@@ -224,13 +224,13 @@ class HTTPSignatureTest < Minitest::Test
     assert sig_headers['Signature-Input']
     assert sig_headers['Signature']
 
+    signed_headers = headers.merge(sig_headers)
+
     assert HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers:,
-      key: ed25519_public_key,
-      signature_input_header: sig_headers['Signature-Input'],
-      signature_header: sig_headers['Signature']
+      headers: signed_headers,
+      key: ed25519_public_key
     )
   end
 
@@ -274,13 +274,13 @@ class HTTPSignatureTest < Minitest::Test
       covered_components: %w[@method @authority]
     )
 
+    headers = default_headers.merge(sig_headers)
+
     refute HTTPSignature.valid?(
       url: default_url,
       method: :get, # Changed from :post
-      headers: default_headers,
-      key: test_shared_secret,
-      signature_input_header: sig_headers['Signature-Input'],
-      signature_header: sig_headers['Signature']
+      headers:,
+      key: test_shared_secret
     )
   end
 
@@ -297,13 +297,13 @@ class HTTPSignatureTest < Minitest::Test
       covered_components: %w[@method @authority]
     )
 
+    headers = default_headers.merge(sig_headers)
+
     refute HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers: default_headers,
-      key: other_key,
-      signature_input_header: sig_headers['Signature-Input'],
-      signature_header: sig_headers['Signature']
+      headers:,
+      key: other_key
     )
   end
 
@@ -320,13 +320,13 @@ class HTTPSignatureTest < Minitest::Test
       covered_components: %w[@method @authority]
     )
 
+    headers = default_headers.merge(sig_headers)
+
     refute HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers: default_headers,
-      key: other_key,
-      signature_input_header: sig_headers['Signature-Input'],
-      signature_header: sig_headers['Signature']
+      headers:,
+      key: other_key
     )
   end
 

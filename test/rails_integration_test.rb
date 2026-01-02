@@ -51,10 +51,8 @@ class RailsIntegrationTest < ActionDispatch::IntegrationTest
     assert HTTPSignature.valid?(
       url: 'http://test.host/protected',
       method: :get,
-      headers: { 'date' => date_header, 'host' => 'test.host' },
-      key: 'MySecureKey',
-      signature_input_header: signed_headers['Signature-Input'],
-      signature_header: signed_headers['Signature']
+      headers: { 'date' => date_header, 'host' => 'test.host' }.merge(signed_headers),
+      key: 'MySecureKey'
     )
 
     perform_request({

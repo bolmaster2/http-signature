@@ -111,10 +111,14 @@ module HTTPSignature
     key: nil,
     key_resolver: nil,
     label: DEFAULT_LABEL,
-    signature_input_header:,
-    signature_header:,
     query_string_params: {}
   )
+    normalized_headers = normalize_headers(headers)
+
+    signature_input_header = normalized_headers['signature-input']
+    signature_header = normalized_headers['signature']
+    raise SignatureError, 'Signature headers are required for verification' unless signature_input_header && signature_header
+
     parsed_input = parse_signature_input(signature_input_header, label)
     parsed_signature = parse_signature(signature_header, label)
 
@@ -124,7 +128,6 @@ module HTTPSignature
     raise SignatureError, 'Key is required for verification' unless resolved_key
 
     uri = apply_query_params(URI(url), query_string_params)
-    normalized_headers = normalize_headers(headers)
     normalized_headers = ensure_content_digest(normalized_headers, body)
 
     canonical_components = build_components(

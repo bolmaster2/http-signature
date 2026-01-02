@@ -19,8 +19,9 @@ class HTTPSignature::Rack
 
     return @app.call(env) if path_excluded?(request.path)
 
-    signature_input_header = request.get_header('HTTP_SIGNATURE_INPUT')
-    signature_header = request.get_header('HTTP_SIGNATURE')
+    request_headers = parse_request_headers(request)
+    signature_input_header = request_headers['signature-input']
+    signature_header = request_headers['signature']
     return [401, {}, ['No signature header']] unless signature_input_header && signature_header
 
     begin
@@ -32,15 +33,12 @@ class HTTPSignature::Rack
         else
           ''
         end
-      request_headers = parse_request_headers(request)
       valid_signature = HTTPSignature.valid?(
         url: request.url,
         method: request.request_method,
         headers: request_headers,
         body: request_body || '',
-        key_resolver: ->(key_id) { HTTPSignature.key(key_id) },
-        signature_input_header: signature_input_header,
-        signature_header: signature_header
+        key_resolver: ->(key_id) { HTTPSignature.key(key_id) }
       )
     rescue HTTPSignature::SignatureError
       return [401, {}, ['Invalid signature :(']]
