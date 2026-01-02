@@ -64,6 +64,8 @@ GEM
       uri (>= 0.11.1)
     nokogiri (1.19.0-arm64-darwin)
       racc (~> 1.4)
+    nokogiri (1.19.0-x86_64-linux-gnu)
+      racc (~> 1.4)
     prism (1.7.0)
     racc (1.8.1)
     rack (3.2.4)
@@ -94,6 +96,7 @@ GEM
 
 PLATFORMS
   arm64-darwin-25
+  x86_64-linux
 
 DEPENDENCIES
   actionpack (>= 6.1)
