@@ -18,21 +18,21 @@ module HTTPSignature
   class MissingComponent < SignatureError; end
   class UnsupportedAlgorithm < SignatureError; end
 
-  Algorithm = Struct.new(:type, :digest, :openssl_digest, :curve)
+  Algorithm = Struct.new(:type, :digest_name, :curve)
   ALGORITHMS = {
     # HMAC algorithms (Section 3.3.3)
-    'hmac-sha256' => Algorithm.new(:hmac, 'SHA256', OpenSSL::Digest::SHA256.new),
-    'hmac-sha512' => Algorithm.new(:hmac, 'SHA512', OpenSSL::Digest::SHA512.new),
+    'hmac-sha256' => Algorithm.new(:hmac, 'SHA256'),
+    'hmac-sha512' => Algorithm.new(:hmac, 'SHA512'),
     # RSA-PSS algorithms (Section 3.3.1)
-    'rsa-pss-sha256' => Algorithm.new(:rsa_pss, 'SHA256', OpenSSL::Digest::SHA256.new),
-    'rsa-pss-sha512' => Algorithm.new(:rsa_pss, 'SHA512', OpenSSL::Digest::SHA512.new),
+    'rsa-pss-sha256' => Algorithm.new(:rsa_pss, 'SHA256'),
+    'rsa-pss-sha512' => Algorithm.new(:rsa_pss, 'SHA512'),
     # RSASSA-PKCS1-v1_5 algorithms (Section 3.3.2)
-    'rsa-v1_5-sha256' => Algorithm.new(:rsa, 'SHA256', OpenSSL::Digest::SHA256.new),
+    'rsa-v1_5-sha256' => Algorithm.new(:rsa, 'SHA256'),
     # ECDSA algorithms (Section 3.3.4, 3.3.5)
-    'ecdsa-p256-sha256' => Algorithm.new(:ecdsa, 'SHA256', OpenSSL::Digest::SHA256.new, 'prime256v1'),
-    'ecdsa-p384-sha384' => Algorithm.new(:ecdsa, 'SHA384', OpenSSL::Digest::SHA384.new, 'secp384r1'),
+    'ecdsa-p256-sha256' => Algorithm.new(:ecdsa, 'SHA256', 'prime256v1'),
+    'ecdsa-p384-sha384' => Algorithm.new(:ecdsa, 'SHA384', 'secp384r1'),
     # EdDSA algorithm (Section 3.3.6)
-    'ed25519' => Algorithm.new(:ed25519, nil, nil)
+    'ed25519' => Algorithm.new(:ed25519, nil)
   }.freeze
 
   # Configure key store used by Rack middleware
@@ -256,22 +256,30 @@ module HTTPSignature
     ALGORITHMS[algorithm] || raise(UnsupportedAlgorithm, "Unsupported algorithm #{algorithm}")
   end
 
+  def self.build_digest(algorithm)
+    return unless algorithm.digest_name
+
+    OpenSSL::Digest.new(algorithm.digest_name)
+  end
+
   def self.sign(base_string, key:, algorithm:)
     case algorithm.type
     when :hmac
-      OpenSSL::HMAC.digest(algorithm.digest, key, base_string)
+      OpenSSL::HMAC.digest(algorithm.digest_name, key, base_string)
     when :rsa_pss
       pkey = rsa_key(key)
       # Use generic sign with RSA-PSS options (works with all key types)
-      pkey.sign(algorithm.digest, base_string,
+      digest = build_digest(algorithm)
+      pkey.sign(digest, base_string,
         rsa_padding_mode: 'pss',
         rsa_pss_saltlen: -1,
-        rsa_mgf1_md: algorithm.digest)
+        rsa_mgf1_md: algorithm.digest_name)
     when :rsa
-      rsa_key(key).sign(algorithm.openssl_digest, base_string)
+      rsa_key(key).sign(build_digest(algorithm), base_string)
     when :ecdsa
       ec_key = ec_key(key)
-      der_signature = ec_key.sign(algorithm.openssl_digest, base_string)
+      digest = build_digest(algorithm)
+      der_signature = ec_key.sign(digest, base_string)
       ecdsa_der_to_raw(der_signature, algorithm.curve)
     when :ed25519
       ed25519_key(key).sign(nil, base_string)
@@ -283,21 +291,23 @@ module HTTPSignature
   def self.verify_signature(base_string, signature_bytes, key, algorithm)
     case algorithm.type
     when :hmac
-      expected = OpenSSL::HMAC.digest(algorithm.digest, key, base_string)
+      expected = OpenSSL::HMAC.digest(algorithm.digest_name, key, base_string)
       ::Rack::Utils.secure_compare(expected, signature_bytes)
     when :rsa_pss
       pkey = rsa_key(key)
       # Use generic verify with RSA-PSS options (works with all key types)
-      pkey.verify(algorithm.digest, signature_bytes, base_string,
+      digest = build_digest(algorithm)
+      pkey.verify(digest, signature_bytes, base_string,
         rsa_padding_mode: 'pss',
         rsa_pss_saltlen: -1,
-        rsa_mgf1_md: algorithm.digest)
+        rsa_mgf1_md: algorithm.digest_name)
     when :rsa
-      rsa_key(key).verify(algorithm.openssl_digest, signature_bytes, base_string)
+      rsa_key(key).verify(build_digest(algorithm), signature_bytes, base_string)
     when :ecdsa
       ec_key = ec_key(key)
       der_signature = ecdsa_raw_to_der(signature_bytes, algorithm.curve)
-      ec_key.verify(algorithm.openssl_digest, der_signature, base_string)
+      digest = build_digest(algorithm)
+      ec_key.verify(digest, der_signature, base_string)
     when :ed25519
       ed25519_key(key).verify(nil, signature_bytes, base_string)
     else
