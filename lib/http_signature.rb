@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
-require 'openssl'
-require 'securerandom'
-require 'base64'
-require 'uri'
-require 'digest'
-require 'rack/utils'
+require "openssl"
+require "securerandom"
+require "base64"
+require "uri"
+require "digest"
+require "rack/utils"
 
 # Implements HTTP Message Signatures per RFC 9421.
 module HTTPSignature
   Config = Struct.new(:keys)
-  DEFAULT_LABEL = 'sig1'
-  DEFAULT_ALGORITHM = 'hmac-sha256'
+  DEFAULT_LABEL = "sig1"
+  DEFAULT_ALGORITHM = "hmac-sha256"
   DEFAULT_COMPONENTS = %w[@method @authority @target-uri].freeze
 
   class SignatureError < StandardError; end
@@ -21,18 +21,18 @@ module HTTPSignature
   Algorithm = Struct.new(:type, :digest_name, :curve)
   ALGORITHMS = {
     # HMAC algorithms (Section 3.3.3)
-    'hmac-sha256' => Algorithm.new(:hmac, 'SHA256'),
-    'hmac-sha512' => Algorithm.new(:hmac, 'SHA512'),
+    "hmac-sha256" => Algorithm.new(:hmac, "SHA256"),
+    "hmac-sha512" => Algorithm.new(:hmac, "SHA512"),
     # RSA-PSS algorithms (Section 3.3.1)
-    'rsa-pss-sha256' => Algorithm.new(:rsa_pss, 'SHA256'),
-    'rsa-pss-sha512' => Algorithm.new(:rsa_pss, 'SHA512'),
+    "rsa-pss-sha256" => Algorithm.new(:rsa_pss, "SHA256"),
+    "rsa-pss-sha512" => Algorithm.new(:rsa_pss, "SHA512"),
     # RSASSA-PKCS1-v1_5 algorithms (Section 3.3.2)
-    'rsa-v1_5-sha256' => Algorithm.new(:rsa, 'SHA256'),
+    "rsa-v1_5-sha256" => Algorithm.new(:rsa, "SHA256"),
     # ECDSA algorithms (Section 3.3.4, 3.3.5)
-    'ecdsa-p256-sha256' => Algorithm.new(:ecdsa, 'SHA256', 'prime256v1'),
-    'ecdsa-p384-sha384' => Algorithm.new(:ecdsa, 'SHA384', 'secp384r1'),
+    "ecdsa-p256-sha256" => Algorithm.new(:ecdsa, "SHA256", "prime256v1"),
+    "ecdsa-p384-sha384" => Algorithm.new(:ecdsa, "SHA384", "secp384r1"),
     # EdDSA algorithm (Section 3.3.6)
-    'ed25519' => Algorithm.new(:ed25519, nil)
+    "ed25519" => Algorithm.new(:ed25519, nil)
   }.freeze
 
   # Configure key store used by Rack middleware
@@ -61,10 +61,9 @@ module HTTPSignature
   # @return [Hash] { 'Signature-Input' => header, 'Signature' => header }
   def self.create(
     url:,
-    method: :get,
+    key:, method: :get,
     headers: {},
-    body: '',
-    key:,
+    body: "",
     key_id: SecureRandom.hex(8),
     algorithm: DEFAULT_ALGORITHM,
     covered_components: nil,
@@ -103,8 +102,8 @@ module HTTPSignature
     signature_header = build_signature_header(label, signature_bytes)
 
     {
-      'Signature-Input' => signature_input_header,
-      'Signature' => signature_header
+      "Signature-Input" => signature_input_header,
+      "Signature" => signature_header
     }
   end
 
@@ -115,7 +114,7 @@ module HTTPSignature
     url:,
     method:,
     headers: {},
-    body: '',
+    body: "",
     key: nil,
     key_resolver: nil,
     label: DEFAULT_LABEL,
@@ -123,9 +122,9 @@ module HTTPSignature
   )
     normalized_headers = normalize_headers(headers)
 
-    signature_input_header = normalized_headers['signature-input']
-    signature_header = normalized_headers['signature']
-    raise SignatureError, 'Signature headers are required for verification' unless signature_input_header && signature_header
+    signature_input_header = normalized_headers["signature-input"]
+    signature_header = normalized_headers["signature"]
+    raise SignatureError, "Signature headers are required for verification" unless signature_input_header && signature_header
 
     parsed_input = parse_signature_input(signature_input_header, label)
     parsed_signature = parse_signature(signature_header, label)
@@ -133,7 +132,7 @@ module HTTPSignature
     algorithm_entry = algorithm_entry_for(parsed_input[:params][:alg] || DEFAULT_ALGORITHM)
     key_id = parsed_input[:params][:keyid]
     resolved_key = key || key_resolver&.call(key_id) || key_from_store(key_id)
-    raise SignatureError, 'Key is required for verification' unless resolved_key
+    raise SignatureError, "Key is required for verification" unless resolved_key
 
     uri = apply_query_params(URI(url), query_string_params)
     normalized_headers = ensure_content_digest(normalized_headers, body)
@@ -170,28 +169,28 @@ module HTTPSignature
     new_uri = uri.dup
     encoded = URI.encode_www_form(query_string_params)
     new_uri.query =
-      [new_uri.query, encoded].compact.reject(&:empty?).join('&')
+      [new_uri.query, encoded].compact.reject(&:empty?).join("&")
     new_uri
   end
 
   def self.default_components(headers)
     components = DEFAULT_COMPONENTS.dup
-    components << 'date' if headers['date']
-    components << 'content-digest' if headers['content-digest']
+    components << "date" if headers["date"]
+    components << "content-digest" if headers["content-digest"]
     components
   end
 
   def self.ensure_content_digest(headers, body)
     return headers if body.to_s.empty?
-    return headers if headers['content-digest']
+    return headers if headers["content-digest"]
 
     digest = Digest::SHA256.digest(body)
-    headers.merge('content-digest' => "sha-256=:#{Base64.strict_encode64(digest)}:")
+    headers.merge("content-digest" => "sha-256=:#{Base64.strict_encode64(digest)}:")
   end
 
   def self.build_components(uri:, method:, headers:, covered_components:)
     covered_components.map do |component|
-      if component.start_with?('@')
+      if component.start_with?("@")
         [component, derived_component(component, uri, method)]
       else
         value = headers[component]
@@ -204,23 +203,23 @@ module HTTPSignature
 
   def self.derived_component(component, uri, method)
     case component
-    when '@method' then method.to_s.upcase
-    when '@authority'
+    when "@method" then method.to_s.upcase
+    when "@authority"
       port = uri.port
-      default_port = (uri.scheme == 'https' ? 443 : 80)
-      uri.port && port != default_port ? "#{uri.host}:#{uri.port}" : uri.host
-    when '@target-uri'
+      default_port = ((uri.scheme == "https") ? 443 : 80)
+      (uri.port && port != default_port) ? "#{uri.host}:#{uri.port}" : uri.host
+    when "@target-uri"
       uri.dup.tap { |u| u.fragment = nil }.to_s
-    when '@scheme' then uri.scheme
-    when '@path' then uri.path
-    when '@query' then uri.query.to_s
+    when "@scheme" then uri.scheme
+    when "@path" then uri.path
+    when "@query" then uri.query.to_s
     else
       raise MissingComponent, "Unsupported derived component: #{component}"
     end
   end
 
   def self.canonical_header_value(value)
-    value.is_a?(Array) ? value.join(', ') : value.to_s
+    value.is_a?(Array) ? value.join(", ") : value.to_s
   end
 
   def self.build_signature_input(
@@ -232,12 +231,12 @@ module HTTPSignature
     nonce:,
     canonical_components:
   )
-    component_tokens = components.map { |c| %("#{c}") }.join(' ')
+    component_tokens = components.map { |c| %("#{c}") }.join(" ")
     params = ["created=#{created}", %(keyid="#{key_id}")]
     params << %(alg="#{alg}") if alg
     params << %(nonce="#{nonce}") if nonce
 
-    signature_params = "(#{component_tokens});#{params.join(';')}"
+    signature_params = "(#{component_tokens});#{params.join(";")}"
     signature_input_header = "#{label}=#{signature_params}"
 
     base_lines = canonical_components.map do |name, value|
@@ -271,7 +270,7 @@ module HTTPSignature
       # Use generic sign with RSA-PSS options (works with all key types)
       digest = build_digest(algorithm)
       pkey.sign(digest, base_string,
-        rsa_padding_mode: 'pss',
+        rsa_padding_mode: "pss",
         rsa_pss_saltlen: -1,
         rsa_mgf1_md: algorithm.digest_name)
     when :rsa
@@ -298,7 +297,7 @@ module HTTPSignature
       # Use generic verify with RSA-PSS options (works with all key types)
       digest = build_digest(algorithm)
       pkey.verify(digest, signature_bytes, base_string,
-        rsa_padding_mode: 'pss',
+        rsa_padding_mode: "pss",
         rsa_pss_saltlen: -1,
         rsa_mgf1_md: algorithm.digest_name)
     when :rsa
@@ -317,23 +316,23 @@ module HTTPSignature
 
   def self.parse_signature_input(header, label)
     entry = split_header(header).find { |v| v.start_with?("#{label}=") }
-    raise SignatureError, 'Signature-Input missing' unless entry
+    raise SignatureError, "Signature-Input missing" unless entry
 
     components_match = entry.match(/\((.*?)\)/)
     components =
-      components_match ? components_match[1].scan(/\"([^\"]+)\"/).flatten : []
+      components_match ? components_match[1].scan(/"([^"]+)"/).flatten : []
 
-    params = entry.split(');').last&.split(';')&.map do |p|
-      key, value = p.split('=', 2)
-      [key.to_sym, value&.tr('"', '')]
+    params = entry.split(");").last&.split(";")&.map do |p|
+      key, value = p.split("=", 2)
+      [key.to_sym, value&.tr('"', "")]
     end.to_h || {}
 
-    { components: components, params: params }
+    {components: components, params: params}
   end
 
   def self.parse_signature(header, label)
     entry = split_header(header).find { |v| v.start_with?("#{label}=") }
-    raise SignatureError, 'Signature missing' unless entry
+    raise SignatureError, "Signature missing" unless entry
 
     encoded = entry.match(/:(.*):/)[1]
     Base64.strict_decode64(encoded)
@@ -367,7 +366,7 @@ module HTTPSignature
 
   # Convert ECDSA DER signature to raw (r || s) format per RFC 9421
   def self.ecdsa_der_to_raw(der_signature, curve)
-    byte_size = curve == 'prime256v1' ? 32 : 48
+    byte_size = (curve == "prime256v1") ? 32 : 48
 
     asn1 = OpenSSL::ASN1.decode(der_signature)
     r = asn1.value[0].value.to_s(2)
@@ -381,7 +380,7 @@ module HTTPSignature
 
   # Convert raw (r || s) signature to ECDSA DER format
   def self.ecdsa_raw_to_der(raw_signature, curve)
-    byte_size = curve == 'prime256v1' ? 32 : 48
+    byte_size = (curve == "prime256v1") ? 32 : 48
 
     r_bytes = raw_signature[0, byte_size]
     s_bytes = raw_signature[byte_size, byte_size]

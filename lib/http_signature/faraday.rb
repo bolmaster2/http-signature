@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'http_signature'
-require 'faraday'
+require "http_signature"
+require "faraday"
 
 class HTTPSignature::Faraday < Faraday::Middleware
   class << self
@@ -9,7 +9,7 @@ class HTTPSignature::Faraday < Faraday::Middleware
   end
 
   def call(env)
-    raise 'key and key_id needs to be set' if self.class.key.nil? || self.class.key_id.nil?
+    raise "key and key_id needs to be set" if self.class.key.nil? || self.class.key_id.nil?
 
     body =
       if env[:body] && env[:body].respond_to?(:read)
@@ -30,7 +30,7 @@ class HTTPSignature::Faraday < Faraday::Middleware
       headers: headers_to_sign,
       key: self.class.key,
       key_id: self.class.key_id,
-      algorithm: 'hmac-sha256',
+      algorithm: "hmac-sha256",
       body: body
     )
 
