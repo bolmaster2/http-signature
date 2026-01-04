@@ -335,6 +335,10 @@ module HTTPSignature
     raise SignatureError, "Signature missing" unless entry
 
     encoded = entry.match(/:(.*):/)[1]
+    match = entry.match(/:(.*):()\z/)
+    raise SignatureError, "Invalid signature format" unless match
+
+    encoded = match[1]
     Base64.strict_decode64(encoded)
   end
 
