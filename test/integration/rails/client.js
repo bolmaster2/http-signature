@@ -4,7 +4,10 @@ import { signatureHeaders } from "http-message-sig";
 async function main() {
   const base = process.argv[2] || "http://localhost:3000";
   const url = `${base.replace(/\/$/, "")}/protected`;
-  const host = new URL(url).host;
+  const targetUri = new URL(url);
+  targetUri.hash = "";
+  const targetUriStr = targetUri.toString();
+  const host = targetUri.host;
 
   // Unsigned request should be rejected
   let unsignedStatus;
@@ -39,10 +42,10 @@ async function main() {
   };
 
   const signedHeaders = await signatureHeaders(
-    { method: "GET", url, headers },
+    { method: "GET", url: targetUriStr, headers },
     {
       signer,
-      components: ["@method", "@authority", "@path"],
+      components: ["@method", "@authority", "@target-uri"],
       created: Math.floor(Date.now() / 1000),
     }
   );

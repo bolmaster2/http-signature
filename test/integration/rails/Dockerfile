@@ -10,6 +10,8 @@ RUN rails new demo --minimal --skip-active-record --skip-git --skip-test
 
 WORKDIR /demo
 COPY . /src/http_signature
+RUN ruby -0777 -pe 'gsub(/config\.assume_ssl\s*=.*\n/, "config.assume_ssl = false\n")' -i config/environments/production.rb &&\
+    ruby -0777 -pe 'gsub(/config\.force_ssl\s*=.*\n/, "config.force_ssl = false\n")' -i config/environments/production.rb
 RUN echo 'gem "http_signature", path: "/src/http_signature"' >> Gemfile &&\
     bundle config set --local disable_multisource true &&\
     bundle install
