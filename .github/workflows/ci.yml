@@ -1,11 +1,13 @@
-name: coverage
+name: ci
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 jobs:
-  coverage:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
