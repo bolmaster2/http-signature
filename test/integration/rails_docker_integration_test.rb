@@ -32,12 +32,12 @@ class RailsDockerIntegrationTest < Minitest::Test
 
   def wait_for_server
     uri = URI("http://localhost:#{PORT}/")
-    Timeout.timeout(60) do
+    Timeout.timeout(120) do
       loop do
         begin
           res = Net::HTTP.get_response(uri)
           break if res.is_a?(Net::HTTPSuccess) || res.is_a?(Net::HTTPRedirection)
-        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, EOFError
+        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, EOFError, Errno::ECONNRESET
           # keep retrying
         end
         sleep 1
