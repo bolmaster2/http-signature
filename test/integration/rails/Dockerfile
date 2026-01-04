@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1
 
-FROM ruby:slim as build
+FROM ruby:slim AS build
 
 RUN apt-get update &&\
     apt-get install --yes build-essential git libyaml-dev pkg-config
