@@ -41,10 +41,10 @@ class HTTPSignature::Rack
         key_resolver: ->(key_id) { HTTPSignature.key(key_id) }
       )
     rescue HTTPSignature::SignatureError
-      return [401, {}, ["Invalid signature :("]]
+      return [401, {}, ["Invalid signature"]]
     end
 
-    return [401, {}, ["Invalid signature :("]] unless valid_signature
+    return [401, {}, ["Invalid signature"]] unless valid_signature
 
     @app.call(env)
   end
