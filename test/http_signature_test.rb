@@ -258,6 +258,7 @@ class HTTPSignatureTest < Minitest::Test
         method: :get,
         headers: {},
         key: shared_secret,
+        key_id: "test",
         covered_components: %w[date]
       )
     end
@@ -337,6 +338,7 @@ class HTTPSignatureTest < Minitest::Test
         method: :get,
         headers: {},
         key: "key",
+        key_id: "test",
         algorithm: "unknown-algorithm"
       )
     end

@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "openssl"
-require "securerandom"
 require "base64"
 require "uri"
 require "digest"
@@ -61,10 +60,11 @@ module HTTPSignature
   # @return [Hash] { 'Signature-Input' => header, 'Signature' => header }
   def self.create(
     url:,
-    key:, method: :get,
+    key:,
+    key_id:,
+    method: :get,
     headers: {},
     body: "",
-    key_id: SecureRandom.hex(8),
     algorithm: DEFAULT_ALGORITHM,
     covered_components: nil,
     created: Time.now.to_i,

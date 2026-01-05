@@ -24,7 +24,7 @@ require 'http_signature'
 
 ### Create signature
 
-`HTTPSignature.create` returns both `Signature-Input` and `Signature`. The default algorithm is `hmac-sha256`.
+`HTTPSignature.create` returns both `Signature-Input` and `Signature`. The default algorithm is `hmac-sha256`. Provide a `key_id` that matches the verifier's key store.
 ```ruby
 headers = { 'date' => 'Tue, 20 Apr 2021 02:07:55 GMT' }
 
