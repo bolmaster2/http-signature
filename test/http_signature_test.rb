@@ -251,6 +251,27 @@ class HTTPSignatureTest < Minitest::Test
     assert_includes sig_headers["Signature-Input"], "content-digest"
   end
 
+  def test_signature_input_escapes_structured_values
+    key_id = 'key"id\\with\\backslash'
+    nonce = 'nonce"value\\and\\more'
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id:,
+      key: shared_secret,
+      nonce:,
+      covered_components: %w[@method],
+      created: 1
+    )
+
+    sig_input = sig_headers.fetch("Signature-Input")
+
+    assert_includes sig_input, 'keyid="key\"id\\\\with\\\\backslash"'
+    assert_includes sig_input, 'nonce="nonce\"value\\\\and\\\\more"'
+  end
+
   def test_raises_when_required_header_missing
     assert_raises(HTTPSignature::MissingComponent) do
       HTTPSignature.create(

@@ -222,6 +222,10 @@ module HTTPSignature
     value.is_a?(Array) ? value.join(", ") : value.to_s
   end
 
+  def self.escape_structured_string(value)
+    value.to_s.gsub("\\") { "\\\\" }.gsub('"') { '\"' }
+  end
+
   def self.build_signature_input(
     label:,
     components:,
@@ -231,10 +235,10 @@ module HTTPSignature
     nonce:,
     canonical_components:
   )
-    component_tokens = components.map { |c| %("#{c}") }.join(" ")
-    params = ["created=#{created}", %(keyid="#{key_id}")]
-    params << %(alg="#{alg}") if alg
-    params << %(nonce="#{nonce}") if nonce
+    component_tokens = components.map { |c| %("#{escape_structured_string(c)}") }.join(" ")
+    params = ["created=#{created}", %(keyid="#{escape_structured_string(key_id)}")]
+    params << %(alg="#{escape_structured_string(alg)}") if alg
+    params << %(nonce="#{escape_structured_string(nonce)}") if nonce
 
     signature_params = "(#{component_tokens});#{params.join(";")}"
     signature_input_header = "#{label}=#{signature_params}"
