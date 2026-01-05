@@ -329,9 +329,9 @@ module HTTPSignature
     params = entry.split(");").last&.split(";")&.map do |p|
       key, value = p.split("=", 2)
       [key.to_sym, value&.tr('"', "")]
-    end.to_h || {}
+    end.to_h
 
-    {components: components, params: params}
+    {components:, params:}
   end
 
   def self.parse_signature(header, label)

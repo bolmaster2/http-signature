@@ -12,7 +12,7 @@ class HTTPSignature::Faraday < Faraday::Middleware
     raise "key and key_id needs to be set" if self.class.key.nil? || self.class.key_id.nil?
 
     body =
-      if env[:body] && env[:body].respond_to?(:read)
+      if env[:body]&.respond_to?(:read)
         string = env[:body].read
         env[:body].rewind
         string
