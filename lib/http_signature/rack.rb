@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require 'http_signature'
+require "http_signature"
+require "rack"
 
 # Rack middleware using http-signature gem to validate signature on every incoming request
 class HTTPSignature::Rack
@@ -14,46 +15,38 @@ class HTTPSignature::Rack
   end
 
   def call(env)
-    request = Rack::Request.new(env)
+    request = ::Rack::Request.new(env)
 
     return @app.call(env) if path_excluded?(request.path)
 
-    return [401, {}, ['No signature header']] unless request.get_header("HTTP_SIGNATURE")
+    request_headers = parse_request_headers(request)
+    signature_input_header = request_headers["signature-input"]
+    signature_header = request_headers["signature"]
+    return [401, {}, ["No signature header"]] unless signature_input_header && signature_header
 
     begin
-      request_body = request.body.read
-      request_headers = parse_request_headers(request)
-      parsed_signature = parse_signature(request_headers)
-      key = HTTPSignature.key(parsed_signature['keyId'])
-    rescue
-      return [401, {}, ['Invalid signature :(']]
+      request_body =
+        if request.body
+          body_content = request.body.read
+          request.body.rewind if request.body.respond_to?(:rewind)
+          body_content
+        else
+          ""
+        end
+      valid_signature = HTTPSignature.valid?(
+        url: request.url,
+        method: request.request_method,
+        headers: request_headers,
+        body: request_body || "",
+        key_resolver: ->(key_id) { HTTPSignature.key(key_id) }
+      )
+    rescue HTTPSignature::SignatureError
+      return [401, {}, ["Invalid signature"]]
     end
 
-    headers_to_sign = request_headers.select { |k, v| parsed_signature['headers'].include?(k) }
+    return [401, {}, ["Invalid signature"]] unless valid_signature
 
-    params = {
-      url: request.path,
-      method: request.request_method,
-      headers: headers_to_sign,
-      key: key,
-      key_id: parsed_signature['keyId'],
-      algorithm: parsed_signature['algorithm'],
-      body: request_body ? request_body : '',
-      query_string_params: Rack::Utils.parse_nested_query(request.query_string)
-    }
-
-    valid_signature =
-      if parsed_signature['algorithm'].include?('rsa')
-        HTTPSignature.valid?(**params)
-      else
-        HTTPSignature.create(**params) == request_headers['signature']
-      end
-
-    if valid_signature
-      @app.call(env)
-    else
-      [401, {}, ['Invalid signature :(']]
-    end
+    @app.call(env)
   end
 
   private
@@ -62,27 +55,17 @@ class HTTPSignature::Rack
     request_headers = {}
 
     request.each_header do |header|
-      if header[0].include?('HTTP_') && header[0] != 'HTTP_VERSION'
-        request_headers[header[0].gsub('HTTP_', '').gsub("_", "-").downcase] = header[1]
+      if header[0].include?("HTTP_") && header[0] != "HTTP_VERSION"
+        request_headers[header[0].gsub("HTTP_", "").tr("_", "-").downcase] = header[1]
       end
     end
 
     request_headers
   end
 
-  def parse_signature(request_headers)
-    Rack::Utils.parse_nested_query(
-      request_headers['signature'].gsub(',', '&')
-    ).map do |k, v|
-      [k, v.tr('"', '')]
-    end.to_h
-  end
-
   def path_excluded?(path)
-    matches = self.class.exclude_paths.map do |exclude_path|
-      path.match(exclude_path).present?
+    self.class.exclude_paths.any? do |exclude_path|
+      !!path.match(exclude_path)
     end
-
-    matches.select { |v| v == true }.length.positive?
   end
 end

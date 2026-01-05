@@ -1,278 +1,367 @@
 # frozen_string_literal: true
 
-require 'minitest/autorun'
-require './lib/http_signature'
+require_relative "test_helper"
 
-describe HTTPSignature do
-  def public_key
-    File.read('test/keys/id_rsa.pub')
+class HTTPSignatureTest < Minitest::Test
+  def key_path(filename)
+    File.join(__dir__, "keys", filename)
   end
 
-  def private_key
-    File.read('test/keys/id_rsa')
+  # RFC 9421 Appendix B.1.5 - Example Shared Secret
+  def shared_secret
+    Base64.decode64(File.read(key_path("test_shared_secret.txt")))
   end
 
-  describe 'when using hmac-sha256' do
-    describe 'with defaults' do
-      it 'creates a valid signature' do
-        url = 'https://bolmaster2.com/foo'
+  # RFC 9421 Appendix B.1.2 - Example RSA-PSS Key
+  def rsa_pss_private_key
+    OpenSSL::PKey.read(File.read(key_path("rsa_pss_private_key.pem")))
+  end
 
-        headers = {
-          Host: 'bolmaster2.com',
-          Date: 'Fri, 10 Nov 2017 12:19:48 GMT',
-        }
+  def rsa_pss_public_key
+    OpenSSL::PKey.read(File.read(key_path("rsa_pss_public_key.pem")))
+  end
 
-        output = HTTPSignature.create(
-          url: url,
-          headers: headers,
-          key_id: 'test-key',
-          key: 'boom'
-        )
+  # RFC 9421 Appendix B.1.1 - Example RSA Key (for rsa-v1_5-sha256)
+  def rsa_private_key
+    OpenSSL::PKey.read(File.read(key_path("rsa_private_key.pem")))
+  end
 
-        expected_signature = 'ACBhXaKgSLFFB0EcX+ZgtmGTRTAZjn1KyoM7XPWfxbw='
-        expected = 'keyId="test-key",algorithm="hmac-sha256",headers="(request-target) host date",signature="'+expected_signature+'"'
+  def rsa_public_key
+    OpenSSL::PKey.read(File.read(key_path("rsa_public_key.pem")))
+  end
 
-        assert_equal expected, output
-      end
-    end
+  # RFC 9421 Appendix B.1.3 - Example ECC P-256 Test Key
+  def ecc_p256_private_key
+    OpenSSL::PKey.read(File.read(key_path("ecc_p256_private_key.pem")))
+  end
 
-    describe 'when using hmac-sha512' do
-      describe 'with defaults' do
-        it 'creates a valid signature' do
-          url = 'https://bolmaster2.com/foo'
+  def ecc_p256_public_key
+    OpenSSL::PKey.read(File.read(key_path("ecc_p256_public_key.pem")))
+  end
 
-          headers = {
-            Host: 'bolmaster2.com',
-            date: 'Fri, 10 Nov 2017 12:19:48 GMT'
-          }
+  # RFC 9421 Appendix B.1.4 - Example Ed25519 Test Key
+  def ed25519_private_key
+    OpenSSL::PKey.read(File.read(key_path("ed25519_private_key.pem")))
+  end
 
-          output = HTTPSignature.create(
-            url: url,
-            headers: headers,
-            key_id: 'test-key',
-            key: 'boom',
-            algorithm: 'hmac-sha512'
-          )
-          expected_signature = 'lFH4bKAwPV6+8I8f4Zh65IaOk4LWDmz5aSJFGN/4AWSLZ/mAeEDYTYmqiPV8/EyCtwbcauqmSDR3eUZlSjpC+g=='
-          expected = 'keyId="test-key",algorithm="hmac-sha512",headers="(request-target) host date",signature="'+expected_signature+'"'
+  def ed25519_public_key
+    OpenSSL::PKey.read(File.read(key_path("ed25519_public_key.pem")))
+  end
 
-          assert_equal expected, output
-        end
-      end
-    end
+  # Generate P-384 key for testing (not in RFC examples, but needed for ecdsa-p384-sha384)
+  def ecc_p384_private_key
+    @ecc_p384_private_key ||= OpenSSL::PKey::EC.generate("secp384r1")
+  end
 
-    describe 'when query string is used in both params and in url' do
-      it 'appends the query_string_params' do
-        url = 'https://bolmaster2.com/?ok=god'
-        key = 'boom'
+  def ecc_p384_public_key
+    ecc_p384_private_key
+  end
 
-        params = {
-          boom: 'omg',
-          wtf: 'lol'
-        }
+  # Standard test request from RFC 9421 Appendix B.2
+  def default_url
+    "https://example.com/foo?param=Value&Pet=dog"
+  end
 
-        headers = {
-          Host: 'bolmaster2.com',
-          date: 'Fri, 10 Nov 2017 12:19:48 GMT'
-        }
+  def default_headers
+    {"date" => "Tue, 20 Apr 2021 02:07:55 GMT"}
+  end
 
-        output = HTTPSignature.create(
-          url: url,
-          query_string_params: params,
-          headers: headers,
-          key_id: 'test-key',
-          key: key,
-          algorithm: 'hmac-sha256'
-        )
+  def default_body
+    '{"hello": "world"}'
+  end
 
-        string_to_sign = [
-          "(request-target): get /?ok=god&boom=omg&wtf=lol",
-          "host: bolmaster2.com",
-          "date: Fri, 10 Nov 2017 12:19:48 GMT"
-        ].join("\n")
+  # RFC 9421 Section 3.3.3 - HMAC Using SHA-256
+  def test_hmac_sha256
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      algorithm: "hmac-sha256",
+      covered_components: %w[@method @authority @target-uri date],
+      created: 1_618_884_473
+    )
 
-        expected_signature = Base64.strict_encode64(
-          HTTPSignature.sign(string_to_sign, key: key, algorithm: 'hmac-sha256')
-        )
+    assert sig_headers["Signature-Input"]
+    assert sig_headers["Signature"]
 
-        expected = 'keyId="test-key",algorithm="hmac-sha256",headers="(request-target) host date",signature="'+expected_signature+'"'
+    headers = default_headers.merge(sig_headers)
 
-        assert_equal expected, output
-      end
-    end
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      key: shared_secret
+    )
+  end
 
-    describe 'with post data' do
-      it 'includes digest as header' do
-        skip
-      end
+  # RFC 9421 Section 3.3.1 - RSASSA-PSS Using SHA-512
+  def test_rsa_pss_sha512
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      body: default_body,
+      key_id: "test-key-rsa-pss",
+      key: rsa_pss_private_key,
+      algorithm: "rsa-pss-sha512",
+      covered_components: %w[@method @authority @path],
+      created: 1_618_884_473
+    )
+
+    assert sig_headers["Signature-Input"]
+    assert sig_headers["Signature"]
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      body: default_body,
+      key: rsa_pss_public_key
+    )
+  end
+
+  # RFC 9421 Section 3.3.2 - RSASSA-PKCS1-v1_5 Using SHA-256
+  def test_rsa_v1_5_sha256
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-key-rsa",
+      key: rsa_private_key,
+      algorithm: "rsa-v1_5-sha256",
+      covered_components: %w[@method @authority @path],
+      created: 1_618_884_480
+    )
+
+    assert sig_headers["Signature-Input"]
+    assert sig_headers["Signature"]
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      key: rsa_public_key
+    )
+  end
+
+  # RFC 9421 Section 3.3.4 - ECDSA Using Curve P-256 DSS and SHA-256
+  def test_ecdsa_p256_sha256
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-key-ecc-p256",
+      key: ecc_p256_private_key,
+      algorithm: "ecdsa-p256-sha256",
+      covered_components: %w[@method @authority @path],
+      created: 1_618_884_473
+    )
+
+    assert sig_headers["Signature-Input"]
+    assert sig_headers["Signature"]
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      key: ecc_p256_public_key
+    )
+  end
+
+  # RFC 9421 Section 3.3.5 - ECDSA Using Curve P-384 DSS and SHA-384
+  def test_ecdsa_p384_sha384
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-key-ecc-p384",
+      key: ecc_p384_private_key,
+      algorithm: "ecdsa-p384-sha384",
+      covered_components: %w[@method @authority @path],
+      created: 1_618_884_473
+    )
+
+    assert sig_headers["Signature-Input"]
+    assert sig_headers["Signature"]
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      key: ecc_p384_public_key
+    )
+  end
+
+  # RFC 9421 Section 3.3.6 - EdDSA Using Curve edwards25519
+  def test_ed25519
+    headers = {
+      "date" => "Tue, 20 Apr 2021 02:07:55 GMT",
+      "content-type" => "application/json",
+      "content-length" => "18"
+    }
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers:,
+      key_id: "test-key-ed25519",
+      key: ed25519_private_key,
+      algorithm: "ed25519",
+      covered_components: %w[date @method @path @authority content-type content-length],
+      created: 1_618_884_473
+    )
+
+    assert sig_headers["Signature-Input"]
+    assert sig_headers["Signature"]
+
+    signed_headers = headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers: signed_headers,
+      key: ed25519_public_key
+    )
+  end
+
+  def test_adds_content_digest_when_body_present
+    body = '{"hello":"world"}'
+    headers = {}
+    url = "https://example.com/submit"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :post,
+      headers:,
+      body:,
+      key_id: "test",
+      key: shared_secret
+    )
+
+    assert_includes sig_headers["Signature-Input"], "content-digest"
+  end
+
+  def test_signature_input_escapes_structured_values
+    key_id = 'key"id\\with\\backslash'
+    nonce = 'nonce"value\\and\\more'
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id:,
+      key: shared_secret,
+      nonce:,
+      covered_components: %w[@method],
+      created: 1
+    )
+
+    sig_input = sig_headers.fetch("Signature-Input")
+
+    assert_includes sig_input, 'keyid="key\"id\\\\with\\\\backslash"'
+    assert_includes sig_input, 'nonce="nonce\"value\\\\and\\\\more"'
+  end
+
+  def test_raises_when_required_header_missing
+    assert_raises(HTTPSignature::MissingComponent) do
+      HTTPSignature.create(
+        url: "https://example.com/test",
+        method: :get,
+        headers: {},
+        key: shared_secret,
+        key_id: "test",
+        covered_components: %w[date]
+      )
     end
   end
 
-  describe 'when using rsa-sha256' do
-    # https://tools.ietf.org/html/draft-cavage-http-signatures-08#appendix-C.2
-    describe 'with basic example from draft' do
-      it 'creates a valid signature' do
-        params = {
-          param: 'value',
-          pet: 'dog'
-        }
+  def test_rejects_tampered_signature_hmac
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      algorithm: "hmac-sha256",
+      covered_components: %w[@method @authority]
+    )
 
-        headers = {
-          Host: 'example.com',
-          date: 'Thu, 05 Jan 2014 21:31:40 GMT'
-        }
+    headers = default_headers.merge(sig_headers)
 
-        output = HTTPSignature.create(
-          url: 'https://example.com/foo',
-          method: :post,
-          query_string_params: params,
-          headers: headers,
-          key_id: 'Test',
-          algorithm: 'rsa-sha256',
-          key: OpenSSL::PKey::RSA.new(private_key)
-        )
-
-        expected_signature = 'HUxc9BS3P/kPhSmJo+0pQ4IsCo007vkv6bUm4Qehrx+B1Eo4Mq5/6KylET72ZpMUS80XvjlOPjKzxfeTQj4DiKbAzwJAb4HX3qX6obQTa00/qPDXlMepD2JtTw33yNnm/0xV7fQuvILN/ys+378Ysi082+4xBQFwvhNvSoVsGv4='
-        expected = 'keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date",signature="'+expected_signature+'"'
-
-        assert_equal expected, output
-      end
-
-      it 'validates a signature with the public key' do
-        params = {
-          url: 'https://example.com/foo',
-          method: :post,
-          query_string_params: {
-            param: 'value',
-            pet: 'dog'
-          },
-          headers: {
-            host: 'example.com',
-            date: 'Thu, 05 Jan 2014 21:31:40 GMT'
-          },
-          key_id: 'Test',
-          algorithm: 'rsa-sha256',
-          key: OpenSSL::PKey::RSA.new(private_key)
-        }
-
-        output = HTTPSignature.create(**params)
-
-        # Use the same params as when created the signature, but add signature
-        # and change the private to the public key and remove the :key_id which
-        # isn't used
-        params[:headers][:signature] = output
-        params[:key] = OpenSSL::PKey::RSA.new(public_key)
-        params.delete(:key_id)
-
-        valid = HTTPSignature.valid?(**params)
-
-        assert valid, 'RSA-SHA256 signature is not valid'
-      end
-    end
-
-    # https://tools.ietf.org/html/draft-cavage-http-signatures-08#appendix-C.3
-    describe 'with all headers and body' do
-      it 'creates a valid signature' do
-        params = {
-          param: 'value',
-          pet: 'dog'
-        }
-
-        body = '{"hello": "world"}'
-
-        headers = {
-          host: 'example.com',
-          date: 'Thu, 05 Jan 2014 21:31:40 GMT',
-          'content-type': 'application/json',
-          digest: HTTPSignature.create_digest(body),
-          'content-length': '18'
-        }
-
-        output = HTTPSignature.create(
-          url: 'https://example.com/foo',
-          method: :post,
-          query_string_params: params,
-          headers: headers,
-          key_id: 'Test',
-          algorithm: 'rsa-sha256',
-          key: OpenSSL::PKey::RSA.new(private_key),
-          body: body
-        )
-
-        expected_signature = 'Ef7MlxLXoBovhil3AlyjtBwAL9g4TN3tibLj7uuNB3CROat/9KaeQ4hW2NiJ+pZ6HQEOx9vYZAyi+7cmIkmJszJCut5kQLAwuX+Ms/mUFvpKlSo9StS2bMXDBNjOh4Auj774GFj4gwjS+3NhFeoqyr/MuN6HsEnkvn6zdgfE2i0='
-        expected = 'keyId="Test",algorithm="rsa-sha256",headers="(request-target) host date content-type digest content-length",signature="'+expected_signature+'"'
-
-        assert_equal expected, output
-      end
-    end
+    refute HTTPSignature.valid?(
+      url: default_url,
+      method: :get, # Changed from :post
+      headers:,
+      key: shared_secret
+    )
   end
 
-  describe 'when using rsa-sha512' do
-    describe 'with defaults' do
-      it 'creates a valid signature' do
-        url = 'https://bolmaster2.com/foo'
+  def test_rejects_wrong_key_ecdsa_p256
+    other_key = OpenSSL::PKey::EC.generate("prime256v1")
 
-        headers = {
-          host: 'bolmaster2.com',
-          date: 'Fri, 10 Nov 2017 12:19:48 GMT'
-        }
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-key-ecc-p256",
+      key: ecc_p256_private_key,
+      algorithm: "ecdsa-p256-sha256",
+      covered_components: %w[@method @authority]
+    )
 
-        output = HTTPSignature.create(
-          url: url,
-          headers: headers,
-          key_id: 'test-key',
-          key: OpenSSL::PKey::RSA.new(private_key),
-          algorithm: 'rsa-sha512'
-        )
+    headers = default_headers.merge(sig_headers)
 
-        expected_signature = 'RfccrjiL2x43pc5wwM47EkHKO6/Vqn1bCFbbk70Tb4DggmChKZAl/lP+YmScOv550fqoctDHl0/4KXN59yko8knvPD8upAhxwegNiFqZB11n/0II+OkDAldKHlgMDfzW2+3Y2I169Nd/fGOV7iALOK8mA6wFSCFAWwbFp1PhAcI='
-        expected = 'keyId="test-key",algorithm="rsa-sha512",headers="(request-target) host date",signature="'+expected_signature+'"'
-
-        assert_equal expected, output
-      end
-    end
+    refute HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      key: other_key
+    )
   end
 
-  describe '.create_query_string' do
-    describe 'when query string is used only in url' do
-      it 'creates correct query string' do
-        query_string = '?param1=value1&param2=value2'
-        url = 'http://localhost/omg' + query_string
-        uri = URI(url)
+  def test_rejects_wrong_key_ed25519
+    other_key = OpenSSL::PKey.generate_key("ED25519")
 
-        output = HTTPSignature.create_query_string(uri, {})
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-key-ed25519",
+      key: ed25519_private_key,
+      algorithm: "ed25519",
+      covered_components: %w[@method @authority]
+    )
 
-        assert_equal query_string, output
-      end
-    end
+    headers = default_headers.merge(sig_headers)
 
-    describe 'when query string is used only in query_string_params' do
-      it 'creates correct query string' do
-        uri = URI('http://localhost/omg')
-        output = HTTPSignature.create_query_string(uri, param1: 'value1', param2: 'value2')
-        expected = '?param1=value1&param2=value2'
-
-        assert_equal expected, output
-      end
-    end
+    refute HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      key: other_key
+    )
   end
 
-  describe '.config' do
-    describe 'with keys' do
-      it 'makes the keys accessible' do
-        keys = [{ id: 'key-1', value: 'asdf' }]
-        HTTPSignature.config(keys: keys)
-
-        assert_equal keys, HTTPSignature.keys
-      end
-
-      it 'can pick a key from id' do
-        keys = [{ id: 'key-1', value: 'asdf' }]
-
-        HTTPSignature.config(keys: keys)
-
-        assert_equal 'asdf', HTTPSignature.key('key-1')
-      end
+  def test_raises_on_unsupported_algorithm
+    assert_raises(HTTPSignature::UnsupportedAlgorithm) do
+      HTTPSignature.create(
+        url: default_url,
+        method: :get,
+        headers: {},
+        key: "key",
+        key_id: "test",
+        algorithm: "unknown-algorithm"
+      )
     end
   end
 end

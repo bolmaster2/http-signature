@@ -1,4 +1,5 @@
-source 'https://rubygems.org'
+source "https://rubygems.org"
 
-# Specify your gem's dependencies in rpc.gemspec
+ruby "3.4.8"
+
 gemspec

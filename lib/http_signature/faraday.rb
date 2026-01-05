@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'http_signature'
-require 'faraday'
+require "http_signature"
+require "faraday"
 
 class HTTPSignature::Faraday < Faraday::Middleware
   class << self
@@ -9,10 +9,10 @@ class HTTPSignature::Faraday < Faraday::Middleware
   end
 
   def call(env)
-    raise 'key and key_id needs to be set' if self.class.key.nil? || self.class.key_id.nil?
+    raise "key and key_id needs to be set" if self.class.key.nil? || self.class.key_id.nil?
 
     body =
-      if env[:body] && env[:body].respond_to?(:read)
+      if env[:body]&.respond_to?(:read)
         string = env[:body].read
         env[:body].rewind
         string
@@ -21,20 +21,22 @@ class HTTPSignature::Faraday < Faraday::Middleware
       end
 
     # Choose which headers to sign
-    filtered_headers = %w[Host Date Digest]
+    filtered_headers = %w[Host Date Content-Digest]
     headers_to_sign = env[:request_headers].select { |k, _v| filtered_headers.include?(k.to_s) }
 
-    signature = HTTPSignature.create(
+    signature_headers = HTTPSignature.create(
       url: env[:url],
       method: env[:method],
       headers: headers_to_sign,
       key: self.class.key,
       key_id: self.class.key_id,
-      algorithm: 'hmac-sha256',
+      algorithm: "hmac-sha256",
       body: body
     )
 
-    env[:request_headers]['Signature'] = signature
+    signature_headers.each do |header, value|
+      env[:request_headers][header] = value
+    end
 
     @app.call(env)
   end

@@ -1,0 +1,9 @@
+{
+  "name": "http-signature-rails-integration",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "http-message-sig": "latest"
+  }
+}
+
