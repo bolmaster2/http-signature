@@ -334,7 +334,7 @@ module HTTPSignature
     entry = split_header(header).find { |v| v.start_with?("#{label}=") }
     raise SignatureError, "Signature missing" unless entry
 
-    match = entry.match(/:(.*):()\z/)
+    match = entry.match(/:(.*):\z/)
     raise SignatureError, "Invalid signature format" unless match
 
     encoded = match[1]
