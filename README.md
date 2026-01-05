@@ -18,13 +18,11 @@ gem install http_signature
 
 ## Usage
 
-```ruby
-require 'http_signature'
-```
-
 ### Create signature
 
-`HTTPSignature.create` returns both `Signature-Input` and `Signature`. The default algorithm is `hmac-sha256`. Provide a `key_id` that matches the verifier's key store.
+`HTTPSignature.create` returns both `Signature-Input` and `Signature` headers that you can include in your request.
+
+
 ```ruby
 headers = { 'date' => 'Tue, 20 Apr 2021 02:07:55 GMT' }
 
@@ -34,50 +32,17 @@ sig_headers = HTTPSignature.create(
   headers: headers,
   key_id: 'Test',
   key: 'secret',
-  covered_components: %w[@method @authority @target-uri date],
-  created: 1_618_884_473
+  covered_components: %w[@method @target-uri date],
 )
 
 request['Signature-Input'] = sig_headers['Signature-Input']
 request['Signature'] = sig_headers['Signature']
 ```
 
-#### With headers, query parameters and a body
-When `content-digest` is covered, it is computed automatically from the body.
-
-```ruby
-params = {
-  param: 'value',
-  pet: 'dog'
-}
-
-body = '{"hello": "world"}'
-
-headers = {
-  'date': 'Thu, 05 Jan 2014 21:31:40 GMT',
-  'content-type': 'application/json',
-  'content-length': body.length
-}
-
-sig_headers = HTTPSignature.create(
-  url: 'https://example.com/foo',
-  method: :post,
-  query_string_params: params,
-  headers: headers,
-  key_id: 'rsa-1',
-  algorithm: 'rsa-pss-sha256',
-  key: File.read('key.pem'), # private key
-  body: body,
-  covered_components: %w[@method @authority @target-uri date content-digest]
-)
-
-request['Signature-Input'] = sig_headers['Signature-Input']
-request['Signature'] = sig_headers['Signature']
-```
 
 ### Validate signature
 
-Call `valid?` with the incoming request headers (including `Signature-Input` and `Signature`) and the key.
+Call `valid?` with the incoming request headers (including `Signature-Input` and `Signature`)
 
 ```ruby
 HTTPSignature.valid?(
@@ -88,7 +53,7 @@ HTTPSignature.valid?(
 )
 ```
 
-## Outgoing examples
+## Outgoing request examples
 
 ### NET::HTTP
 
@@ -125,7 +90,6 @@ As a faraday middleware
 ```ruby
 require 'http_signature/faraday'
 
-# Specify key
 HTTPSignature::Faraday.key = 'secret'
 HTTPSignature::Faraday.key_id = 'key-1'
 
@@ -205,6 +169,8 @@ rake test TEST=test/http_signature_test.rb TESTOPTS="--name=/appends\ the\ query
 This project is licensed under the terms of the [MIT license](https://opensource.org/licenses/MIT).
 
 ## Why/when should I use this?
-In short: When you need to make sure that the request or response has not been tampered with (_integrity_). And you can be sure that the request was sent by someone that had the key (_authenticity_). Don't confuse this with encryption, the signed message is not encrypted. It's just _signed_. You could add a layer of encryption on top of this. Or just use HTTPS and you're _kinda safe_ for not that much hassle, which is totally fine in most cases.
+When you need to make sure that the request or response has not been tampered with (_integrity_). And you can be sure that the request was sent by someone that had the key (_authenticity_). Don't confuse this with encryption, the signed message is not encrypted. It's just _signed_. You could add a layer of encryption on top of this. Or just use HTTPS and you're _kinda safe_ for not that much hassle, which is totally fine in most cases.
 
 [Read more about HMAC here](https://security.stackexchange.com/questions/20129/how-and-when-do-i-use-hmac/20301), even though you can sign your messages with RSA as well, but it's the same principle.
+
+Beware that this has not been audited and should be used at your own risk!
