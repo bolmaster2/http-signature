@@ -19,27 +19,16 @@ module HTTPSignature
 
   Algorithm = Struct.new(:type, :digest_name, :curve)
   ALGORITHMS = {
-    # HMAC algorithms (Section 3.3.3)
     "hmac-sha256" => Algorithm.new(:hmac, "SHA256"),
     "hmac-sha512" => Algorithm.new(:hmac, "SHA512"),
-    # RSA-PSS algorithms (Section 3.3.1)
     "rsa-pss-sha256" => Algorithm.new(:rsa_pss, "SHA256"),
     "rsa-pss-sha512" => Algorithm.new(:rsa_pss, "SHA512"),
-    # RSASSA-PKCS1-v1_5 algorithms (Section 3.3.2)
     "rsa-v1_5-sha256" => Algorithm.new(:rsa, "SHA256"),
-    # ECDSA algorithms (Section 3.3.4, 3.3.5)
     "ecdsa-p256-sha256" => Algorithm.new(:ecdsa, "SHA256", "prime256v1"),
     "ecdsa-p384-sha384" => Algorithm.new(:ecdsa, "SHA384", "secp384r1"),
-    # EdDSA algorithm (Section 3.3.6)
     "ed25519" => Algorithm.new(:ed25519, nil)
   }.freeze
 
-  # Configure key store used by Rack middleware
-  #
-  # Example:
-  #   HTTPSignature.configure do |config|
-  #     config.keys = [{ id: 'key-1', value: 'MySecureKey' }]
-  #   end
   def self.configure
     @config ||= Config.new
     yield(@config) if block_given?
