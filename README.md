@@ -117,7 +117,9 @@ Here is how it could be used with sinatra:
 require 'http_signature/rack'
 
 HTTPSignature.configure do |config|
-  config.keys = [{ id: 'key-1', value: 'MySecureKey' }]
+  config.keys = [
+    {id: 'key-1', value: 'MySecureKey'}
+  ]
 end
 HTTPSignature::Rack.exclude_paths = ['/', '/hello/*']
 
@@ -126,7 +128,8 @@ run MyApp
 ```
 
 ### Rails
-Opt-in per controller/action using a before_action.
+Opt-in per controller/action using a before_action. It responds with `401 Unauthorized` if the signature is invalid
+
 ```ruby
 # app/controllers/api/base_controller.rb
 
@@ -144,7 +147,9 @@ Set the keys in an initializer
 # config/initializers/http_signature.rb
 
 HTTPSignature.configure do |config|
-  config.keys = [{ id: 'key-1', value: 'MySecureKey' }]
+  config.keys = [
+    {id: 'key-1', value: 'MySecureKey'}
+  ]
 end
 ```
 
