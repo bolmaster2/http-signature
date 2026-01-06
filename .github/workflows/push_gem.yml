@@ -1,3 +1,8 @@
+on:
+  push:
+    branches:
+      - main
+
 jobs:
   push:
     name: Push gem to RubyGems.org
@@ -8,7 +13,6 @@ jobs:
       contents: write # IMPORTANT: this permission is required for `rake release` to push the release tag
 
     steps:
-      # Set up
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
@@ -18,5 +22,4 @@ jobs:
           bundler-cache: true
           ruby-version: ruby
 
-      # Release
       - uses: rubygems/release-gem@v1
