@@ -251,6 +251,41 @@ class HTTPSignatureTest < Minitest::Test
     assert_includes sig_headers["Signature-Input"], "content-digest"
   end
 
+  def test_adds_content_digest_when_component_explicitly_requested
+    body = default_body
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      body:,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      covered_components: %w[@method content-digest]
+    )
+
+    assert_includes sig_headers["Signature-Input"], "content-digest"
+  end
+
+  def test_defaults_components_and_headers_when_not_provided
+    headers = {"content-type" => "application/json"}
+    body = default_body
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers:,
+      body:,
+      key_id: "test-shared-secret",
+      key: shared_secret
+    )
+
+    component_section = sig_headers.fetch("Signature-Input")[/\(([^)]*)\)/, 1]
+    components = component_section.split.map { |c| c.delete_prefix('"').delete_suffix('"') }
+
+    assert_equal %w[@method @target-uri content-digest content-type], components
+  end
+
   def test_signature_input_escapes_structured_values
     key_id = 'key"id\\with\\backslash'
     nonce = 'nonce"value\\and\\more'

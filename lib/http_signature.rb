@@ -11,7 +11,8 @@ module HTTPSignature
   Config = Struct.new(:keys)
   DEFAULT_LABEL = "sig1"
   DEFAULT_ALGORITHM = "hmac-sha256"
-  DEFAULT_COMPONENTS = %w[@method @authority @target-uri].freeze
+  DEFAULT_COMPONENTS = %w[@method @target-uri].freeze
+  DEFAULT_HEADERS = %w[content-digest content-type].freeze
 
   class SignatureError < StandardError; end
   class MissingComponent < SignatureError; end
@@ -65,10 +66,15 @@ module HTTPSignature
     normalized_headers = normalize_headers(headers)
     uri = apply_query_params(URI(url), query_string_params)
 
-    normalized_headers = ensure_content_digest(normalized_headers, body)
-
     components =
-      covered_components || default_components(normalized_headers)
+      covered_components || default_components(normalized_headers, body:)
+
+    normalized_headers =
+      if components.include?("content-digest")
+        ensure_content_digest(normalized_headers, body)
+      else
+        normalized_headers
+      end
 
     canonical_components = build_components(
       uri: uri,
@@ -124,7 +130,9 @@ module HTTPSignature
     raise SignatureError, "Key is required for verification" unless resolved_key
 
     uri = apply_query_params(URI(url), query_string_params)
-    normalized_headers = ensure_content_digest(normalized_headers, body)
+    if parsed_input[:components].include?("content-digest")
+      normalized_headers = ensure_content_digest(normalized_headers, body)
+    end
 
     canonical_components = build_components(
       uri: uri,
@@ -162,10 +170,19 @@ module HTTPSignature
     new_uri
   end
 
-  def self.default_components(headers)
+  def self.default_components(headers, body: nil)
     components = DEFAULT_COMPONENTS.dup
-    components << "date" if headers["date"]
-    components << "content-digest" if headers["content-digest"]
+    DEFAULT_HEADERS.each do |header|
+      include_header =
+        if header == "content-digest"
+          !body.to_s.empty? || headers[header]
+        else
+          headers[header]
+        end
+
+      components << header if include_header
+    end
+
     components
   end
 
