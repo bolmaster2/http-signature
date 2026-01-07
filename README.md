@@ -2,18 +2,19 @@
 
 Create and validate HTTP Message Signatures per [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) using the `Signature-Input` and `Signature` headers.
 
-Aims to only implement the creation and validation of signatures without any external dependencies. Adapters are provided for common HTTP libraries.
+TL;DR: You specify what should be signed in `Signature-Input` with [components](https://www.rfc-editor.org/rfc/rfc9421#name-derived-components) and lowercase headers. And then the signature is in the `Signature` header
 
-__NOTE__: RFC 9421 signs components via two headers:
+Example:
+
 ```
-Signature-Input: sig1=("@method" "@authority" "@target-uri" "date");created=...
-Signature: sig1=:BASE64_SIGNATURE_BYTES:
+Signature-Input: sig1=("@method" "@target-uri" "date");created=1767816111;keyid="Test";alg="hmac-sha256"
+Signature: sig1=:7a1ajkE2rOu+gnW3WLZ4ZEcgCm3TfExmypM/giIgdM0=:
 ```
 
 ## Installation
 
 ```shell
-gem install http_signature
+bundle add http_signature
 ```
 
 ## Usage
