@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    http_signature (1.0.0)
+    http_signature (1.0.1)
       base64
 
 GEM
