@@ -40,7 +40,7 @@ sig_headers = HTTPSignature.create(
   expires: Time.now.to_i + 600, # Default: nil
   nonce: "1", # Default: nil
   label: "sig1", # Default: "sig1",
-  query_string_params: {pet: "dog"} # Default: {}
+  query_string_params: {pet2: "cat"} # Default: {}, you can pass query string params both here and in the `url` param
   algorithm: "hmac-sha512" # Default: "hmac-sha256"
 )
 
