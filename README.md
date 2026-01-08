@@ -23,11 +23,25 @@ bundle add http_signature
 
 `HTTPSignature.create` returns both `Signature-Input` and `Signature` headers that you can include in your request.
 
-
 ```ruby
 headers = { "date" => "Tue, 20 Apr 2021 02:07:55 GMT" }
 
 sig_headers = HTTPSignature.create(
+  url: "https://example.com/foo?pet=dog",
+  method: :get,
+  key_id: "Test",
+  key: "secret",
+  headers: headers,
+  covered_components: %w[@method @target-uri date]
+)
+
+request["Signature-Input"] = sig_headers["Signature-Input"]
+request["Signature"] = sig_headers["Signature"]
+```
+#### All options
+
+```ruby
+HTTPSignature.create(
   url: "https://example.com/foo?pet=dog",
   method: :get,
   key_id: "Test",
@@ -43,9 +57,6 @@ sig_headers = HTTPSignature.create(
   query_string_params: {pet2: "cat"} # Default: {}, you can pass query string params both here and in the `url` param
   algorithm: "hmac-sha512" # Default: "hmac-sha256"
 )
-
-request["Signature-Input"] = sig_headers["Signature-Input"]
-request["Signature"] = sig_headers["Signature"]
 ```
 
 
