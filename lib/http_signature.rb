@@ -64,6 +64,9 @@ module HTTPSignature
     label: DEFAULT_LABEL,
     query_string_params: {}
   )
+    if expires && created > expires
+      raise ArgumentError, "expires (#{expires}) must be greater than created (#{created})"
+    end
     algorithm_entry = algorithm_entry_for(algorithm)
     normalized_headers = normalize_headers(headers)
     uri = apply_query_params(URI(url), query_string_params)

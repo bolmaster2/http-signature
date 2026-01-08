@@ -324,6 +324,18 @@ class HTTPSignatureTest < Minitest::Test
     assert_includes sig_input, "expires=61"
   end
 
+  def test_create_raises_when_created_is_after_expires
+    assert_raises(ArgumentError) do
+      HTTPSignature.create(
+        url: default_url,
+        key_id: "test-shared-secret",
+        key: shared_secret,
+        created: 20,
+        expires: 10
+      )
+    end
+  end
+
   def test_rejects_expired_signature
     sig_headers = HTTPSignature.create(
       url: default_url,
@@ -332,7 +344,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-shared-secret",
       key: shared_secret,
       covered_components: %w[@method],
-      created: 10,
+      created: 1,
       expires: 5
     )
 
