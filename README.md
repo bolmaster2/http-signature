@@ -25,26 +25,27 @@ bundle add http_signature
 
 
 ```ruby
-headers = { 'date' => 'Tue, 20 Apr 2021 02:07:55 GMT' }
+headers = { "date" => "Tue, 20 Apr 2021 02:07:55 GMT" }
 
 sig_headers = HTTPSignature.create(
-  url: 'https://example.com/foo?pet=dog',
+  url: "https://example.com/foo?pet=dog",
   method: :get,
-  key_id: 'Test',
-  key: 'secret',
+  key_id: "Test",
+  key: "secret",
   # Optional arguments
   headers: headers, # Default: {}
   body: "Hello world", # Default: ""
   covered_components: %w[@method @target-uri date], # Default: %w[@method @target-uri content-digest content-type]
-  expires: Time.now.to_i, # Default: nil
+  created: Time.now.to_i, # Default: Time.now.to_i
+  expires: Time.now.to_i + 600, # Default: nil
   nonce: "1", # Default: nil
   label: "sig1", # Default: "sig1",
   query_string_params: {pet: "dog"} # Default: {}
   algorithm: "hmac-sha512" # Default: "hmac-sha256"
 )
 
-request['Signature-Input'] = sig_headers['Signature-Input']
-request['Signature'] = sig_headers['Signature']
+request["Signature-Input"] = sig_headers["Signature-Input"]
+request["Signature"] = sig_headers["Signature"]
 ```
 
 
@@ -68,10 +69,10 @@ HTTPSignature.valid?(
 ### NET::HTTP
 
 ```ruby
-require 'net/http'
-require 'http_signature'
+require "net/http"
+require "http_signature"
 
-uri = URI('http://example.com/hello')
+uri = URI("http://example.com/hello")
 
 Net::HTTP.start(uri.host, uri.port) do |http|
   request = Net::HTTP::Get.new(uri)
@@ -80,14 +81,14 @@ Net::HTTP.start(uri.host, uri.port) do |http|
     url: request.uri,
     method: request.method,
     headers: request.each_header.map { |k, v| [k, v] }.to_h,
-    key: 'MYSECRETKEY',
-    key_id: 'KEY_1',
-    algorithm: 'hmac-sha256',
-    body: request.body ? request.body : ''
+    key: "MYSECRETKEY",
+    key_id: "KEY_1",
+    algorithm: "hmac-sha256",
+    body: request.body || ""
   )
 
-  request['Signature-Input'] = sig_headers['Signature-Input']
-  request['Signature'] = sig_headers['Signature']
+  request["Signature-Input"] = sig_headers["Signature-Input"]
+  request["Signature"] = sig_headers["Signature"]
 
   response = http.request(request) # Net::HTTPResponse
 end
@@ -98,18 +99,18 @@ end
 As a faraday middleware
 
 ```ruby
-require 'http_signature/faraday'
+require "http_signature/faraday"
 
-HTTPSignature::Faraday.key = 'secret'
-HTTPSignature::Faraday.key_id = 'key-1'
+HTTPSignature::Faraday.key = "secret"
+HTTPSignature::Faraday.key_id = "key-1"
 
-Faraday.new('http://example.com') do |faraday|
+Faraday.new("http://example.com") do |faraday|
   faraday.use(HTTPSignature::Faraday)
   faraday.adapter(Faraday.default_adapter)
 end
 
 # Now this request will contain the `Signature-Input` and `Signature` headers
-response = conn.get('/')
+response = conn.get("/")
 
 # Request looking like:
 # Signature-Input: sig1=("@method" "@authority" "@target-uri" "date");created=...
@@ -124,14 +125,14 @@ Rack middlewares sits in between your app and the HTTP request and validate the 
 Here is how it could be used with sinatra:
 
 ```ruby
-require 'http_signature/rack'
+require "http_signature/rack"
 
 HTTPSignature.configure do |config|
   config.keys = [
-    {id: 'key-1', value: 'MySecureKey'}
+    {id: "key-1", value: "MySecureKey"}
   ]
 end
-HTTPSignature::Rack.exclude_paths = ['/', '/hello/*']
+HTTPSignature::Rack.exclude_paths = ["/", "/hello/*"]
 
 use HTTPSignature::Rack
 run MyApp
@@ -143,7 +144,7 @@ Opt-in per controller/action using a before_action. It responds with `401 Unauth
 ```ruby
 # app/controllers/api/base_controller.rb
 
-require 'http_signature/rails'
+require "http_signature/rails"
 
 class Api::BaseController < ApplicationController
   include HTTPSignature::Rails::Controller
@@ -158,7 +159,7 @@ Set the keys in an initializer
 
 HTTPSignature.configure do |config|
   config.keys = [
-    {id: 'key-1', value: 'MySecureKey'}
+    {id: "key-1", value: "MySecureKey"}
   ]
 end
 ```
