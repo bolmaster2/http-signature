@@ -79,21 +79,21 @@ module HTTPSignature
       end
 
     canonical_components = build_components(
-      uri: uri,
-      method: method,
+      uri:,
+      method:,
       headers: normalized_headers,
       covered_components: components
     )
 
     signature_input_header, base_string = build_signature_input(
-      label: label,
-      components: components,
-      created: created,
-      expires: expires,
-      key_id: key_id,
+      label:,
+      components:,
+      created:,
+      expires:,
+      key_id:,
       alg: algorithm,
-      nonce: nonce,
-      canonical_components: canonical_components
+      nonce:,
+      canonical_components:
     )
 
     signature_bytes = sign(base_string, key: key, algorithm: algorithm_entry)
@@ -144,21 +144,21 @@ module HTTPSignature
     end
 
     canonical_components = build_components(
-      uri: uri,
-      method: method,
+      uri:,
+      method:,
       headers: normalized_headers,
       covered_components: parsed_input[:components]
     )
 
     _, base_string = build_signature_input(
-      label: label,
+      label:,
       components: parsed_input[:components],
-      created: created,
-      expires: expires,
-      key_id: key_id,
+      created:,
+      expires:,
+      key_id:,
       alg: parsed_input[:params][:alg],
       nonce: parsed_input[:params][:nonce],
-      canonical_components: canonical_components
+      canonical_components:
     )
 
     verify_signature(base_string, parsed_signature, resolved_key, algorithm_entry)
