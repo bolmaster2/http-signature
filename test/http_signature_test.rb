@@ -286,6 +286,35 @@ class HTTPSignatureTest < Minitest::Test
     assert_equal %w[@method @target-uri content-digest content-type], components
   end
 
+  def test_merges_url_and_query_string_params_into_signature
+    url = "https://example.com/foo?pet=dog"
+    query_string_params = {pet2: "cat"}
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      query_string_params:
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret,
+      query_string_params:
+    )
+
+    refute HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
   def test_signature_input_escapes_structured_values
     key_id = 'key"id\\with\\backslash'
     nonce = 'nonce"value\\and\\more'
