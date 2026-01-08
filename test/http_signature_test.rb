@@ -336,6 +336,26 @@ class HTTPSignatureTest < Minitest::Test
     end
   end
 
+  def test_create_raises_when_timestamps_are_not_integers
+    assert_raises(ArgumentError) do
+      HTTPSignature.create(
+        url: default_url,
+        key_id: "test-shared-secret",
+        key: shared_secret,
+        created: "not-a-timestamp"
+      )
+    end
+
+    assert_raises(ArgumentError) do
+      HTTPSignature.create(
+        url: default_url,
+        key_id: "test-shared-secret",
+        key: shared_secret,
+        expires: Time.now.to_f.to_i + 10.5
+      )
+    end
+  end
+
   def test_rejects_expired_signature
     sig_headers = HTTPSignature.create(
       url: default_url,

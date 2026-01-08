@@ -64,6 +64,12 @@ module HTTPSignature
     label: DEFAULT_LABEL,
     query_string_params: {}
   )
+    unless created.is_a?(Integer)
+      raise ArgumentError, "created must be a Unix timestamp integer"
+    end
+    if expires && !expires.is_a?(Integer)
+      raise ArgumentError, "expires must be a Unix timestamp integer"
+    end
     if expires && created > expires
       raise ArgumentError, "expires (#{expires}) must be greater than created (#{created})"
     end
