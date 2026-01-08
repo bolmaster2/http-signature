@@ -17,6 +17,7 @@ module HTTPSignature
   class SignatureError < StandardError; end
   class MissingComponent < SignatureError; end
   class UnsupportedAlgorithm < SignatureError; end
+  class ExpiredError < SignatureError; end
 
   Algorithm = Struct.new(:type, :digest_name, :curve)
   ALGORITHMS = {
@@ -58,10 +59,20 @@ module HTTPSignature
     algorithm: DEFAULT_ALGORITHM,
     covered_components: nil,
     created: Time.now.to_i,
+    expires: nil,
     nonce: nil,
     label: DEFAULT_LABEL,
     query_string_params: {}
   )
+    unless created.is_a?(Integer)
+      raise ArgumentError, "created must be a Unix timestamp integer"
+    end
+    if expires && !expires.is_a?(Integer)
+      raise ArgumentError, "expires must be a Unix timestamp integer"
+    end
+    if expires && created > expires
+      raise ArgumentError, "expires (#{expires}) must be greater than created (#{created})"
+    end
     algorithm_entry = algorithm_entry_for(algorithm)
     normalized_headers = normalize_headers(headers)
     uri = apply_query_params(URI(url), query_string_params)
@@ -77,20 +88,21 @@ module HTTPSignature
       end
 
     canonical_components = build_components(
-      uri: uri,
-      method: method,
+      uri:,
+      method:,
       headers: normalized_headers,
       covered_components: components
     )
 
     signature_input_header, base_string = build_signature_input(
-      label: label,
-      components: components,
-      created: created,
-      key_id: key_id,
+      label:,
+      components:,
+      created:,
+      expires:,
+      key_id:,
       alg: algorithm,
-      nonce: nonce,
-      canonical_components: canonical_components
+      nonce:,
+      canonical_components:
     )
 
     signature_bytes = sign(base_string, key: key, algorithm: algorithm_entry)
@@ -126,6 +138,12 @@ module HTTPSignature
 
     algorithm_entry = algorithm_entry_for(parsed_input[:params][:alg] || DEFAULT_ALGORITHM)
     key_id = parsed_input[:params][:keyid]
+    created = parsed_input[:params][:created].to_i
+    expires = parsed_input[:params][:expires]&.to_i
+    now = Time.now.to_i
+    if expires && (created > expires || now > expires)
+      raise ExpiredError, "Signature expired at #{expires}"
+    end
     resolved_key = key || key_resolver&.call(key_id) || key_from_store(key_id)
     raise SignatureError, "Key is required for verification" unless resolved_key
 
@@ -135,20 +153,21 @@ module HTTPSignature
     end
 
     canonical_components = build_components(
-      uri: uri,
-      method: method,
+      uri:,
+      method:,
       headers: normalized_headers,
       covered_components: parsed_input[:components]
     )
 
     _, base_string = build_signature_input(
-      label: label,
+      label:,
       components: parsed_input[:components],
-      created: parsed_input[:params][:created].to_i,
-      key_id: key_id,
+      created:,
+      expires:,
+      key_id:,
       alg: parsed_input[:params][:alg],
       nonce: parsed_input[:params][:nonce],
-      canonical_components: canonical_components
+      canonical_components:
     )
 
     verify_signature(base_string, parsed_signature, resolved_key, algorithm_entry)
@@ -236,13 +255,16 @@ module HTTPSignature
     label:,
     components:,
     created:,
+    expires:,
     key_id:,
     alg:,
     nonce:,
     canonical_components:
   )
     component_tokens = components.map { |c| %("#{escape_structured_string(c)}") }.join(" ")
-    params = ["created=#{created}", %(keyid="#{escape_structured_string(key_id)}")]
+    params = ["created=#{created}"]
+    params << "expires=#{expires}" unless expires.nil?
+    params << %(keyid="#{escape_structured_string(key_id)}")
     params << %(alg="#{escape_structured_string(alg)}") if alg
     params << %(nonce="#{escape_structured_string(nonce)}") if nonce
 

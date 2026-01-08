@@ -336,6 +336,105 @@ class HTTPSignatureTest < Minitest::Test
     assert_includes sig_input, 'nonce="nonce\"value\\\\and\\\\more"'
   end
 
+  def test_signature_input_includes_expires_param
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      covered_components: %w[@method],
+      created: 1,
+      expires: 61
+    )
+
+    sig_input = sig_headers.fetch("Signature-Input")
+
+    assert_includes sig_input, "expires=61"
+  end
+
+  def test_create_raises_when_created_is_after_expires
+    assert_raises(ArgumentError) do
+      HTTPSignature.create(
+        url: default_url,
+        key_id: "test-shared-secret",
+        key: shared_secret,
+        created: 20,
+        expires: 10
+      )
+    end
+  end
+
+  def test_create_raises_when_timestamps_are_not_integers
+    assert_raises(ArgumentError) do
+      HTTPSignature.create(
+        url: default_url,
+        key_id: "test-shared-secret",
+        key: shared_secret,
+        created: "not-a-timestamp"
+      )
+    end
+
+    assert_raises(ArgumentError) do
+      HTTPSignature.create(
+        url: default_url,
+        key_id: "test-shared-secret",
+        key: shared_secret,
+        expires: Time.now.to_f.to_i + 10.5
+      )
+    end
+  end
+
+  def test_rejects_expired_signature
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      covered_components: %w[@method],
+      created: 1,
+      expires: 5
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    assert_raises(HTTPSignature::ExpiredError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key: shared_secret
+      )
+    end
+  end
+
+  def test_expired_when_now_is_after_expires
+    expires = Time.now.to_i - 60
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      covered_components: %w[@method],
+      created: expires - 5,
+      expires:
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    assert_raises(HTTPSignature::ExpiredError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key: shared_secret
+      )
+    end
+  end
+
   def test_raises_when_required_header_missing
     assert_raises(HTTPSignature::MissingComponent) do
       HTTPSignature.create(
