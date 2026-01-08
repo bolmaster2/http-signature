@@ -17,6 +17,7 @@ module HTTPSignature
   class SignatureError < StandardError; end
   class MissingComponent < SignatureError; end
   class UnsupportedAlgorithm < SignatureError; end
+  class ExpiredError < SignatureError; end
 
   Algorithm = Struct.new(:type, :digest_name, :curve)
   ALGORITHMS = {
@@ -58,6 +59,7 @@ module HTTPSignature
     algorithm: DEFAULT_ALGORITHM,
     covered_components: nil,
     created: Time.now.to_i,
+    expires: nil,
     nonce: nil,
     label: DEFAULT_LABEL,
     query_string_params: {}
@@ -87,6 +89,7 @@ module HTTPSignature
       label: label,
       components: components,
       created: created,
+      expires: expires,
       key_id: key_id,
       alg: algorithm,
       nonce: nonce,
@@ -126,6 +129,12 @@ module HTTPSignature
 
     algorithm_entry = algorithm_entry_for(parsed_input[:params][:alg] || DEFAULT_ALGORITHM)
     key_id = parsed_input[:params][:keyid]
+    created = parsed_input[:params][:created].to_i
+    expires = parsed_input[:params][:expires]&.to_i
+    now = Time.now.to_i
+    if expires && (created > expires || now > expires)
+      raise ExpiredError, "Signature expired at #{expires}"
+    end
     resolved_key = key || key_resolver&.call(key_id) || key_from_store(key_id)
     raise SignatureError, "Key is required for verification" unless resolved_key
 
@@ -144,7 +153,8 @@ module HTTPSignature
     _, base_string = build_signature_input(
       label: label,
       components: parsed_input[:components],
-      created: parsed_input[:params][:created].to_i,
+      created: created,
+      expires: expires,
       key_id: key_id,
       alg: parsed_input[:params][:alg],
       nonce: parsed_input[:params][:nonce],
@@ -236,13 +246,16 @@ module HTTPSignature
     label:,
     components:,
     created:,
+    expires:,
     key_id:,
     alg:,
     nonce:,
     canonical_components:
   )
     component_tokens = components.map { |c| %("#{escape_structured_string(c)}") }.join(" ")
-    params = ["created=#{created}", %(keyid="#{escape_structured_string(key_id)}")]
+    params = ["created=#{created}"]
+    params << "expires=#{expires}" unless expires.nil?
+    params << %(keyid="#{escape_structured_string(key_id)}")
     params << %(alg="#{escape_structured_string(alg)}") if alg
     params << %(nonce="#{escape_structured_string(nonce)}") if nonce
 
