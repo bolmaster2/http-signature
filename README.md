@@ -30,10 +30,17 @@ headers = { 'date' => 'Tue, 20 Apr 2021 02:07:55 GMT' }
 sig_headers = HTTPSignature.create(
   url: 'https://example.com/foo?pet=dog',
   method: :get,
-  headers: headers,
   key_id: 'Test',
   key: 'secret',
-  covered_components: %w[@method @target-uri date],
+  # Optional arguments
+  headers: headers, # Default: {}
+  body: "Hello world", # Default: ""
+  covered_components: %w[@method @target-uri date], # Default: %w[@method @target-uri content-digest content-type]
+  expires: Time.now.to_i, # Default: nil
+  nonce: "1", # Default: nil
+  label: "sig1", # Default: "sig1",
+  query_string_params: {pet: "dog"} # Default: {}
+  algorithm: "hmac-sha512" # Default: "hmac-sha256"
 )
 
 request['Signature-Input'] = sig_headers['Signature-Input']
@@ -52,6 +59,8 @@ HTTPSignature.valid?(
   headers: headers,
   key: "secret"
 )
+
+# Returns true when all is good. Otherwise raises errors: `SignatureError`, `ExpiredError`
 ```
 
 ## Outgoing request examples
