@@ -33,7 +33,7 @@ class HTTPSignature::Rack
         else
           ""
         end
-      valid_signature = HTTPSignature.valid?(
+      HTTPSignature.valid?(
         url: request.url,
         method: request.request_method,
         headers: request_headers,
@@ -43,8 +43,6 @@ class HTTPSignature::Rack
     rescue HTTPSignature::SignatureError
       return [401, {}, ["Invalid signature"]]
     end
-
-    return [401, {}, ["Invalid signature"]] unless valid_signature
 
     @app.call(env)
   end

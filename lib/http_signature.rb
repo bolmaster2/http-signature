@@ -116,7 +116,7 @@ module HTTPSignature
 
   # Verify RFC 9421 Signature headers
   #
-  # @return [Boolean]
+  # @return [Boolean] true when signature verification succeeds
   def self.valid?(
     url:,
     method:,
@@ -170,7 +170,10 @@ module HTTPSignature
       canonical_components:
     )
 
-    verify_signature(base_string, parsed_signature, resolved_key, algorithm_entry)
+    verified = verify_signature(base_string, parsed_signature, resolved_key, algorithm_entry)
+    raise SignatureError, "Invalid signature" unless verified
+
+    true
   end
 
   # -- Private-ish helpers --
@@ -371,6 +374,8 @@ module HTTPSignature
 
     encoded = match[1]
     Base64.strict_decode64(encoded)
+  rescue ArgumentError
+    raise SignatureError, "Invalid signature format"
   end
 
   def self.split_header(header)

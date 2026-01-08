@@ -61,7 +61,8 @@ HTTPSignature.valid?(
   key: "secret"
 )
 
-# Returns true when all is good. Otherwise raises errors: `SignatureError`, `ExpiredError`
+# Returns true when all is good.
+# Raises `SignatureError` for invalid signatures
 ```
 
 ## Outgoing request examples
