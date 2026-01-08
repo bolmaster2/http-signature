@@ -20,7 +20,7 @@ module HTTPSignature
 
         request_body = read_request_body
 
-        valid_signature = HTTPSignature.valid?(
+        HTTPSignature.valid?(
           url: request.url,
           method: request.request_method,
           headers: request_headers,
@@ -28,10 +28,8 @@ module HTTPSignature
           key_resolver: ->(key_id) { HTTPSignature.key(key_id) }
         )
 
-        return if valid_signature
-
-        render status: :unauthorized, plain: "Invalid signature"
-      rescue HTTPSignature::SignatureError, ArgumentError
+        nil
+      rescue HTTPSignature::SignatureError
         render status: :unauthorized, plain: "Invalid signature"
       end
 

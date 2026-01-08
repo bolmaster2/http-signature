@@ -307,12 +307,14 @@ class HTTPSignatureTest < Minitest::Test
       query_string_params:
     )
 
-    refute HTTPSignature.valid?(
-      url:,
-      method: :get,
-      headers:,
-      key: shared_secret
-    )
+    assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url:,
+        method: :get,
+        headers:,
+        key: shared_secret
+      )
+    end
   end
 
   def test_signature_input_escapes_structured_values
@@ -461,12 +463,14 @@ class HTTPSignatureTest < Minitest::Test
 
     headers = default_headers.merge(sig_headers)
 
-    refute HTTPSignature.valid?(
-      url: default_url,
-      method: :get, # Changed from :post
-      headers:,
-      key: shared_secret
-    )
+    assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :get, # Changed from :post
+        headers:,
+        key: shared_secret
+      )
+    end
   end
 
   def test_rejects_wrong_key_ecdsa_p256
@@ -484,12 +488,14 @@ class HTTPSignatureTest < Minitest::Test
 
     headers = default_headers.merge(sig_headers)
 
-    refute HTTPSignature.valid?(
-      url: default_url,
-      method: :post,
-      headers:,
-      key: other_key
-    )
+    assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key: other_key
+      )
+    end
   end
 
   def test_rejects_wrong_key_ed25519
@@ -507,12 +513,14 @@ class HTTPSignatureTest < Minitest::Test
 
     headers = default_headers.merge(sig_headers)
 
-    refute HTTPSignature.valid?(
-      url: default_url,
-      method: :post,
-      headers:,
-      key: other_key
-    )
+    assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key: other_key
+      )
+    end
   end
 
   def test_raises_on_unsupported_algorithm
