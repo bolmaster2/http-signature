@@ -106,7 +106,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-key-rsa-pss",
       key: rsa_pss_private_key,
       algorithm: "rsa-pss-sha512",
-      covered_components: %w[@method @authority @path],
+      covered_components: %w[@method @authority @path content-digest],
       created: 1_618_884_473
     )
 
