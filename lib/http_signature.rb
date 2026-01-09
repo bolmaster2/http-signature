@@ -57,7 +57,7 @@ module HTTPSignature
     headers: {},
     body: "",
     algorithm: DEFAULT_ALGORITHM,
-    covered_components: nil,
+    components: nil,
     created: Time.now.to_i,
     expires: nil,
     nonce: nil,
@@ -77,8 +77,8 @@ module HTTPSignature
     normalized_headers = normalize_headers(headers)
     uri = apply_query_params(URI(url), query_string_params)
 
-    components =
-      covered_components || default_components(normalized_headers, body:)
+    components ||=
+      default_components(normalized_headers, body:)
 
     normalized_headers =
       if components.include?("content-digest")
@@ -91,7 +91,7 @@ module HTTPSignature
       uri:,
       method:,
       headers: normalized_headers,
-      covered_components: components
+      components:
     )
 
     signature_input_header, base_string = build_signature_input(
@@ -156,7 +156,7 @@ module HTTPSignature
       uri:,
       method:,
       headers: normalized_headers,
-      covered_components: parsed_input[:components]
+      components: parsed_input[:components]
     )
 
     _, base_string = build_signature_input(
@@ -216,8 +216,8 @@ module HTTPSignature
     headers.merge("content-digest" => "sha-256=:#{Base64.strict_encode64(digest)}:")
   end
 
-  def self.build_components(uri:, method:, headers:, covered_components:)
-    covered_components.map do |component|
+  def self.build_components(uri:, method:, headers:, components:)
+    components.map do |component|
       if component.start_with?("@")
         [component, derived_component(component, uri, method)]
       else

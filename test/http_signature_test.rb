@@ -79,7 +79,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-shared-secret",
       key: shared_secret,
       algorithm: "hmac-sha256",
-      covered_components: %w[@method @authority @target-uri date],
+      components: %w[@method @authority @target-uri date],
       created: 1_618_884_473
     )
 
@@ -106,7 +106,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-key-rsa-pss",
       key: rsa_pss_private_key,
       algorithm: "rsa-pss-sha512",
-      covered_components: %w[@method @authority @path content-digest],
+      components: %w[@method @authority @path content-digest],
       created: 1_618_884_473
     )
 
@@ -133,7 +133,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-key-rsa",
       key: rsa_private_key,
       algorithm: "rsa-v1_5-sha256",
-      covered_components: %w[@method @authority @path],
+      components: %w[@method @authority @path],
       created: 1_618_884_480
     )
 
@@ -159,7 +159,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-key-ecc-p256",
       key: ecc_p256_private_key,
       algorithm: "ecdsa-p256-sha256",
-      covered_components: %w[@method @authority @path],
+      components: %w[@method @authority @path],
       created: 1_618_884_473
     )
 
@@ -185,7 +185,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-key-ecc-p384",
       key: ecc_p384_private_key,
       algorithm: "ecdsa-p384-sha384",
-      covered_components: %w[@method @authority @path],
+      components: %w[@method @authority @path],
       created: 1_618_884_473
     )
 
@@ -217,7 +217,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-key-ed25519",
       key: ed25519_private_key,
       algorithm: "ed25519",
-      covered_components: %w[date @method @path @authority content-type content-length],
+      components: %w[date @method @path @authority content-type content-length],
       created: 1_618_884_473
     )
 
@@ -261,7 +261,7 @@ class HTTPSignatureTest < Minitest::Test
       body:,
       key_id: "test-shared-secret",
       key: shared_secret,
-      covered_components: %w[@method content-digest]
+      components: %w[@method content-digest]
     )
 
     assert_includes sig_headers["Signature-Input"], "content-digest"
@@ -328,7 +328,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id:,
       key: shared_secret,
       nonce:,
-      covered_components: %w[@method],
+      components: %w[@method],
       created: 1
     )
 
@@ -345,7 +345,7 @@ class HTTPSignatureTest < Minitest::Test
       headers: default_headers,
       key_id: "test-shared-secret",
       key: shared_secret,
-      covered_components: %w[@method],
+      components: %w[@method],
       created: 1,
       expires: 61
     )
@@ -394,7 +394,7 @@ class HTTPSignatureTest < Minitest::Test
       headers: default_headers,
       key_id: "test-shared-secret",
       key: shared_secret,
-      covered_components: %w[@method],
+      components: %w[@method],
       created: 1,
       expires: 5
     )
@@ -420,7 +420,7 @@ class HTTPSignatureTest < Minitest::Test
       headers: default_headers,
       key_id: "test-shared-secret",
       key: shared_secret,
-      covered_components: %w[@method],
+      components: %w[@method],
       created: expires - 5,
       expires:
     )
@@ -445,7 +445,7 @@ class HTTPSignatureTest < Minitest::Test
         headers: {},
         key: shared_secret,
         key_id: "test",
-        covered_components: %w[date]
+        components: %w[date]
       )
     end
   end
@@ -458,7 +458,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-shared-secret",
       key: shared_secret,
       algorithm: "hmac-sha256",
-      covered_components: %w[@method @authority]
+      components: %w[@method @authority]
     )
 
     headers = default_headers.merge(sig_headers)
@@ -483,7 +483,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-key-ecc-p256",
       key: ecc_p256_private_key,
       algorithm: "ecdsa-p256-sha256",
-      covered_components: %w[@method @authority]
+      components: %w[@method @authority]
     )
 
     headers = default_headers.merge(sig_headers)
@@ -508,7 +508,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id: "test-key-ed25519",
       key: ed25519_private_key,
       algorithm: "ed25519",
-      covered_components: %w[@method @authority]
+      components: %w[@method @authority]
     )
 
     headers = default_headers.merge(sig_headers)

@@ -22,7 +22,7 @@ describe HTTPSignature::Rack do
       headers: {"date" => date},
       key_id: "key-1",
       key: hmac_key,
-      covered_components: %w[@method @authority @target-uri date],
+      components: %w[@method @authority @target-uri date],
       created: 1_618_884_473
     )
 

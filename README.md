@@ -32,7 +32,7 @@ sig_headers = HTTPSignature.create(
   key_id: "Test",
   key: "secret",
   headers: headers,
-  covered_components: %w[@method @target-uri date]
+  components: %w[@method @target-uri date]
 )
 
 request["Signature-Input"] = sig_headers["Signature-Input"]
@@ -49,7 +49,7 @@ HTTPSignature.create(
   # Optional arguments
   headers: headers, # Default: {}
   body: "Hello world", # Default: ""
-  covered_components: %w[@method @target-uri date], # Default: %w[@method @target-uri content-digest content-type]
+  components: %w[@method @target-uri date], # Default: %w[@method @target-uri content-digest content-type]
   created: Time.now.to_i, # Default: Time.now.to_i
   expires: Time.now.to_i + 600, # Default: nil
   nonce: "1", # Default: nil
