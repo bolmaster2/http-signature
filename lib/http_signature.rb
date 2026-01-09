@@ -151,10 +151,11 @@ module HTTPSignature
     algorithm_entry = algorithm_entry_for(algorithm || parsed_input[:params][:alg] || DEFAULT_ALGORITHM)
     key_id = parsed_input[:params][:keyid]
     created = parsed_input[:params][:created].to_i
-    expires = parsed_input[:params][:expires]&.to_i
+    signature_expires = parsed_input[:params][:expires]&.to_i
+    effective_expires = expires_in ? created + expires_in : signature_expires
     now = Time.now.to_i
-    if expires && (created > expires || now > expires)
-      raise ExpiredError, "Signature expired at #{expires}"
+    if effective_expires && (created > effective_expires || now > effective_expires)
+      raise ExpiredError, "Signature expired at #{effective_expires}"
     end
     resolved_key = key || key_resolver&.call(key_id) || key_from_store(key_id)
     raise SignatureError, "Key is required for verification" unless resolved_key
@@ -176,7 +177,7 @@ module HTTPSignature
       label:,
       components: parsed_input[:components],
       created:,
-      expires:,
+      expires: signature_expires,
       key_id:,
       alg: parsed_input[:params][:alg],
       nonce: parsed_input[:params][:nonce],

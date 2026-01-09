@@ -494,6 +494,86 @@ class HTTPSignatureTest < Minitest::Test
     end
   end
 
+  def test_expires_in_rejects_old_signature
+    created = Time.now.to_i - 120
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      components: %w[@method],
+      created:
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    assert_raises(HTTPSignature::ExpiredError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key: shared_secret,
+        expires_in: 60
+      )
+    end
+  end
+
+  def test_expires_in_accepts_recent_signature
+    created = Time.now.to_i - 30
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      components: %w[@method],
+      created:
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      key: shared_secret,
+      expires_in: 60
+    )
+  end
+
+  def test_expires_in_takes_precedence_over_signature_expires
+    created = Time.now.to_i - 30
+    expires = Time.now.to_i + 3600 # Signature says it's valid for another hour
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      components: %w[@method],
+      created:,
+      expires:
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    # Should be rejected because expires_in (10 seconds) takes precedence
+    # and the signature was created 30 seconds ago
+    assert_raises(HTTPSignature::ExpiredError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key: shared_secret,
+        expires_in: 10
+      )
+    end
+  end
+
   def test_raises_when_required_header_missing
     assert_raises(HTTPSignature::MissingComponent) do
       HTTPSignature.create(
