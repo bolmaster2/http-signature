@@ -139,8 +139,8 @@ module HTTPSignature
     algorithm: nil,
     status: nil
   )
-    if expires_in && !expires_in.is_a?(Integer)
-      raise ArgumentError, "expires_in must be an integer"
+    if expires_in && (!expires_in.is_a?(Integer) || expires_in < 0)
+      raise ArgumentError, "expires_in must be a non-negative integer"
     end
     normalized_headers = normalize_headers(headers)
 

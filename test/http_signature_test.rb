@@ -444,7 +444,7 @@ class HTTPSignatureTest < Minitest::Test
     end
   end
 
-  def test_valid_raises_when_expires_in_is_not_an_integer
+  def test_valid_raises_when_expires_in_is_not_a_non_negative_integer
     sig_headers = HTTPSignature.create(
       url: default_url,
       key_id: "test-shared-secret",
@@ -461,6 +461,16 @@ class HTTPSignatureTest < Minitest::Test
         headers:,
         key: shared_secret,
         expires_in: "60"
+      )
+    end
+
+    assert_raises(ArgumentError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :get,
+        headers:,
+        key: shared_secret,
+        expires_in: -1
       )
     end
   end
