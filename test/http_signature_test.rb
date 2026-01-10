@@ -703,4 +703,19 @@ class HTTPSignatureTest < Minitest::Test
       )
     end
   end
+
+  def test_raises_on_unsupported_component
+    error = assert_raises(HTTPSignature::UnsupportedComponent) do
+      HTTPSignature.create(
+        url: default_url,
+        method: :get,
+        headers: {},
+        key: shared_secret,
+        key_id: "test",
+        components: %w[@method @unsupported-component]
+      )
+    end
+
+    assert_equal "Unsupported component: @unsupported-component", error.message
+  end
 end

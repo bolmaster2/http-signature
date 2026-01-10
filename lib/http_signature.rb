@@ -16,8 +16,11 @@ module HTTPSignature
 
   class SignatureError < StandardError; end
   class MissingComponent < SignatureError; end
+  class UnsupportedComponent < SignatureError; end
   class UnsupportedAlgorithm < SignatureError; end
   class ExpiredError < SignatureError; end
+
+  SUPPORTED_DERIVED_COMPONENTS = %w[@method @authority @target-uri @scheme @path @query @status].freeze
 
   Algorithm = Struct.new(:type, :digest_name, :curve)
   ALGORITHMS = {
@@ -67,6 +70,7 @@ module HTTPSignature
   # @return [Hash] { 'Signature-Input' => header, 'Signature' => header }
   # @raise [ArgumentError] If created/expires are not integers or expires < created
   # @raise [UnsupportedAlgorithm] If the algorithm is not supported
+  # @raise [UnsupportedComponent] If a derived component (e.g. @foo) is not supported
   # @raise [MissingComponent] If a required component is missing
   def self.create(
     url:,
@@ -100,6 +104,8 @@ module HTTPSignature
 
     components ||=
       default_components(normalized_headers, body:)
+
+    validate_components!(components)
 
     normalized_headers =
       if components.include?("content-digest")
@@ -236,6 +242,15 @@ module HTTPSignature
     new_uri.query =
       [new_uri.query, encoded].compact.reject(&:empty?).join("&")
     new_uri
+  end
+
+  def self.validate_components!(components)
+    components.each do |component|
+      next unless component.start_with?("@")
+      next if SUPPORTED_DERIVED_COMPONENTS.include?(component)
+
+      raise UnsupportedComponent, "Unsupported component: #{component}"
+    end
   end
 
   def self.default_components(headers, body: nil)
