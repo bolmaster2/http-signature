@@ -48,9 +48,26 @@ module HTTPSignature
 
   # Create RFC 9421 Signature-Input and Signature headers
   #
-  # @param include_alg [Boolean] Whether to include the alg parameter in signature metadata.
-  #   Set to false for RFC 9421 test compatibility when algorithm is determined from key.
+  # @param url [String] The full URL of the request being signed
+  # @param key [String, OpenSSL::PKey::PKey] The signing key (secret for HMAC, private key for asymmetric)
+  # @param key_id [String] Identifier for the key, included in the signature metadata
+  # @param method [Symbol] HTTP method (default: :get)
+  # @param headers [Hash] Request headers to potentially include in signature (default: {})
+  # @param body [String] Request body, used to generate content-digest if needed (default: "")
+  # @param algorithm [String] Signing algorithm (default: "hmac-sha256")
+  # @param components [Array<String>, nil] Components to sign. If nil, uses @method, @target-uri,
+  #   and includes content-digest/content-type when present
+  # @param created [Integer] Unix timestamp for signature creation (default: Time.now.to_i)
+  # @param expires [Integer, nil] Unix timestamp when signature expires (default: nil)
+  # @param nonce [String, nil] Random value for signature uniqueness (default: nil)
+  # @param label [String] Signature label in headers (default: "sig1")
+  # @param query_string_params [Hash] Additional query params to merge into URL (default: {})
+  # @param include_alg [Boolean] Whether to include alg in signature metadata (default: true)
+  # @param status [Integer, nil] HTTP status code, required when signing responses with @status component
   # @return [Hash] { 'Signature-Input' => header, 'Signature' => header }
+  # @raise [ArgumentError] If created/expires are not integers or expires < created
+  # @raise [UnsupportedAlgorithm] If the algorithm is not supported
+  # @raise [MissingComponent] If a required component is missing
   def self.create(
     url:,
     key:,
@@ -121,11 +138,23 @@ module HTTPSignature
 
   # Verify RFC 9421 Signature headers
   #
-  # @param max_age [Integer, nil] Optional expiration in seconds from signature creation.
-  #   Takes precedence over the expires timestamp in the signature.
-  # @param algorithm [String, nil] Override the algorithm to use for verification.
-  #   If not provided, uses the alg from signature params or defaults to hmac-sha256.
+  # @param url [String] The full URL of the request being verified
+  # @param method [Symbol] HTTP method of the request
+  # @param headers [Hash] Request headers, must include Signature-Input and Signature headers
+  # @param body [String] Request body (default: "")
+  # @param key [String, OpenSSL::PKey::PKey, nil] Verification key. If nil, uses key_resolver or configured keys
+  # @param key_resolver [Proc, nil] Callable that receives key_id and returns the key (default: nil)
+  # @param label [String] Signature label to verify (default: "sig1")
+  # @param query_string_params [Hash] Additional query params to merge into URL (default: {})
+  # @param max_age [Integer, nil] Maximum signature age in seconds. Takes precedence over
+  #   the expires timestamp in the signature (default: nil)
+  # @param algorithm [String, nil] Override algorithm for verification. If nil, uses alg from
+  #   signature params or defaults to hmac-sha256 (default: nil)
+  # @param status [Integer, nil] HTTP status code, required when verifying responses with @status component
   # @return [Boolean] true when signature verification succeeds
+  # @raise [ArgumentError] If max_age is not a non-negative integer
+  # @raise [SignatureError] If signature headers are missing, key is missing, or signature is invalid
+  # @raise [ExpiredError] If the signature has expired
   def self.valid?(
     url:,
     method:,
