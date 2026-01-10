@@ -139,6 +139,9 @@ module HTTPSignature
     algorithm: nil,
     status: nil
   )
+    if expires_in && !expires_in.is_a?(Integer)
+      raise ArgumentError, "expires_in must be an integer"
+    end
     normalized_headers = normalize_headers(headers)
 
     signature_input_header = normalized_headers["signature-input"]
