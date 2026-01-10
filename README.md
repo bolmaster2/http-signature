@@ -59,6 +59,23 @@ HTTPSignature.create(
 )
 ```
 
+#### Supported components
+
+Derived components (prefixed with `@`) per [RFC 9421 Section 2.2](https://www.rfc-editor.org/rfc/rfc9421#section-2.2):
+
+| Component | Description |
+|-----------|-------------|
+| `@method` | HTTP method (e.g., `GET`, `POST`) |
+| `@target-uri` | Full request URI (`https://example.com/foo?bar=1`) |
+| `@authority` | Host (and port if non-default) |
+| `@scheme` | URI scheme (`http` or `https`) |
+| `@path` | Request path (`/foo`) |
+| `@query` | Query string (including `?`; `?bar=1`) |
+| `@status` | Response status code (responses only) |
+
+Any lowercase header name (e.g., `content-type`, `date`) can also be used as a component.
+
+Default components are: `@method @target-uri content-digest content-type`
 
 ### Validate signature
 
