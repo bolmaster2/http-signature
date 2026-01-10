@@ -76,6 +76,22 @@ HTTPSignature.valid?(
 # Raises `SignatureError` for invalid signatures
 ```
 
+#### Limiting signature age
+
+Use `max_age` to reject signatures older than a specified number of seconds, regardless of the signature's `expires` parameter. This helps protect against replay attacks.
+
+```ruby
+HTTPSignature.valid?(
+  url: "https://example.com/foo",
+  method: :get,
+  headers: headers,
+  key: "secret",
+  max_age: 300 # Reject signatures older than 5 minutes
+)
+
+# Raises `ExpiredError` if the signature was created more than 300 seconds ago
+```
+
 ## Outgoing request examples
 
 ### NET::HTTP
