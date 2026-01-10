@@ -121,7 +121,7 @@ module HTTPSignature
 
   # Verify RFC 9421 Signature headers
   #
-  # @param expires_in [Integer, nil] Optional expiration in seconds from signature creation.
+  # @param max_age [Integer, nil] Optional expiration in seconds from signature creation.
   #   Takes precedence over the expires timestamp in the signature.
   # @param algorithm [String, nil] Override the algorithm to use for verification.
   #   If not provided, uses the alg from signature params or defaults to hmac-sha256.
@@ -135,12 +135,12 @@ module HTTPSignature
     key_resolver: nil,
     label: DEFAULT_LABEL,
     query_string_params: {},
-    expires_in: nil,
+    max_age: nil,
     algorithm: nil,
     status: nil
   )
-    if expires_in && (!expires_in.is_a?(Integer) || expires_in < 0)
-      raise ArgumentError, "expires_in must be a non-negative integer"
+    if max_age && (!max_age.is_a?(Integer) || max_age < 0)
+      raise ArgumentError, "max_age must be a non-negative integer"
     end
     normalized_headers = normalize_headers(headers)
 
@@ -155,7 +155,7 @@ module HTTPSignature
     key_id = parsed_input[:params][:keyid]
     created = parsed_input[:params][:created].to_i
     signature_expires = parsed_input[:params][:expires]&.to_i
-    effective_expires = expires_in ? created + expires_in : signature_expires
+    effective_expires = max_age ? created + max_age : signature_expires
     now = Time.now.to_i
     if effective_expires && (created > effective_expires || now > effective_expires)
       raise ExpiredError, "Signature expired at #{effective_expires}"

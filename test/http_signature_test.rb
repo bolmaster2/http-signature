@@ -444,7 +444,7 @@ class HTTPSignatureTest < Minitest::Test
     end
   end
 
-  def test_valid_raises_when_expires_in_is_not_a_non_negative_integer
+  def test_valid_raises_when_max_age_is_not_a_non_negative_integer
     sig_headers = HTTPSignature.create(
       url: default_url,
       key_id: "test-shared-secret",
@@ -460,7 +460,7 @@ class HTTPSignatureTest < Minitest::Test
         method: :get,
         headers:,
         key: shared_secret,
-        expires_in: "60"
+        max_age: "60"
       )
     end
 
@@ -470,7 +470,7 @@ class HTTPSignatureTest < Minitest::Test
         method: :get,
         headers:,
         key: shared_secret,
-        expires_in: -1
+        max_age: -1
       )
     end
   end
@@ -525,7 +525,7 @@ class HTTPSignatureTest < Minitest::Test
     end
   end
 
-  def test_expires_in_rejects_old_signature
+  def test_max_age_rejects_old_signature
     created = Time.now.to_i - 120
 
     sig_headers = HTTPSignature.create(
@@ -546,12 +546,12 @@ class HTTPSignatureTest < Minitest::Test
         method: :post,
         headers:,
         key: shared_secret,
-        expires_in: 60
+        max_age: 60
       )
     end
   end
 
-  def test_expires_in_accepts_recent_signature
+  def test_max_age_accepts_recent_signature
     created = Time.now.to_i - 30
 
     sig_headers = HTTPSignature.create(
@@ -571,11 +571,11 @@ class HTTPSignatureTest < Minitest::Test
       method: :post,
       headers:,
       key: shared_secret,
-      expires_in: 60
+      max_age: 60
     )
   end
 
-  def test_expires_in_takes_precedence_over_signature_expires
+  def test_max_age_takes_precedence_over_signature_expires
     created = Time.now.to_i - 30
     expires = Time.now.to_i + 3600 # Signature says it's valid for another hour
 
@@ -592,7 +592,7 @@ class HTTPSignatureTest < Minitest::Test
 
     headers = default_headers.merge(sig_headers)
 
-    # Should be rejected because expires_in (10 seconds) takes precedence
+    # Should be rejected because max_age (10 seconds) takes precedence
     # and the signature was created 30 seconds ago
     assert_raises(HTTPSignature::ExpiredError) do
       HTTPSignature.valid?(
@@ -600,7 +600,7 @@ class HTTPSignatureTest < Minitest::Test
         method: :post,
         headers:,
         key: shared_secret,
-        expires_in: 10
+        max_age: 10
       )
     end
   end
