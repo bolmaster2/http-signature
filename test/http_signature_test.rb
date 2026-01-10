@@ -202,7 +202,9 @@ class HTTPSignatureTest < Minitest::Test
     )
   end
 
-  # RFC 9421 Section 3.3.6 - EdDSA Using Curve edwards25519
+  # RFC 9421 Appendix B.2.6 - Signing a Request Using ed25519
+  # This test verifies exact signature output matches the RFC test vector.
+  # Ed25519 is deterministic, so signatures must match exactly.
   def test_ed25519
     headers = {
       "date" => "Tue, 20 Apr 2021 02:07:55 GMT",
@@ -218,11 +220,17 @@ class HTTPSignatureTest < Minitest::Test
       key: ed25519_private_key,
       algorithm: "ed25519",
       components: %w[date @method @path @authority content-type content-length],
-      created: 1_618_884_473
+      created: 1_618_884_473,
+      label: "sig-b26",
+      include_alg: false # RFC example doesn't include alg parameter
     )
 
-    assert sig_headers["Signature-Input"]
-    assert sig_headers["Signature"]
+    # RFC 9421 Appendix B.2.6 expected values
+    expected_signature_input = '("date" "@method" "@path" "@authority" "content-type" "content-length");created=1618884473;keyid="test-key-ed25519"'
+    expected_signature = "wqcAqbmYJ2ji2glfAMaRy4gruYYnx2nEFN2HN6jrnDnQCK1u02Gb04v9EDgwUPiu4A0w6vuQv5lIp5WPpBKRCw=="
+
+    assert_equal "sig-b26=#{expected_signature_input}", sig_headers["Signature-Input"]
+    assert_equal "sig-b26=:#{expected_signature}:", sig_headers["Signature"]
 
     signed_headers = headers.merge(sig_headers)
 
@@ -230,7 +238,9 @@ class HTTPSignatureTest < Minitest::Test
       url: default_url,
       method: :post,
       headers: signed_headers,
-      key: ed25519_public_key
+      key: ed25519_public_key,
+      label: "sig-b26",
+      algorithm: "ed25519"
     )
   end
 

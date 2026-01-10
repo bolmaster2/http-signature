@@ -48,6 +48,8 @@ module HTTPSignature
 
   # Create RFC 9421 Signature-Input and Signature headers
   #
+  # @param include_alg [Boolean] Whether to include the alg parameter in signature metadata.
+  #   Set to false for RFC 9421 test compatibility when algorithm is determined from key.
   # @return [Hash] { 'Signature-Input' => header, 'Signature' => header }
   def self.create(
     url:,
@@ -62,7 +64,8 @@ module HTTPSignature
     expires: nil,
     nonce: nil,
     label: DEFAULT_LABEL,
-    query_string_params: {}
+    query_string_params: {},
+    include_alg: true
   )
     unless created.is_a?(Integer)
       raise ArgumentError, "created must be a Unix timestamp integer"
@@ -100,7 +103,7 @@ module HTTPSignature
       created:,
       expires:,
       key_id:,
-      alg: algorithm,
+      alg: include_alg ? algorithm : nil,
       nonce:,
       canonical_components:
     )
@@ -116,6 +119,10 @@ module HTTPSignature
 
   # Verify RFC 9421 Signature headers
   #
+  # @param expires_in [Integer, nil] Optional expiration in seconds from signature creation.
+  #   Takes precedence over the expires timestamp in the signature.
+  # @param algorithm [String, nil] Override the algorithm to use for verification.
+  #   If not provided, uses the alg from signature params or defaults to hmac-sha256.
   # @return [Boolean] true when signature verification succeeds
   def self.valid?(
     url:,
@@ -125,7 +132,9 @@ module HTTPSignature
     key: nil,
     key_resolver: nil,
     label: DEFAULT_LABEL,
-    query_string_params: {}
+    query_string_params: {},
+    expires_in: nil,
+    algorithm: nil
   )
     normalized_headers = normalize_headers(headers)
 
@@ -136,7 +145,7 @@ module HTTPSignature
     parsed_input = parse_signature_input(signature_input_header, label)
     parsed_signature = parse_signature(signature_header, label)
 
-    algorithm_entry = algorithm_entry_for(parsed_input[:params][:alg] || DEFAULT_ALGORITHM)
+    algorithm_entry = algorithm_entry_for(algorithm || parsed_input[:params][:alg] || DEFAULT_ALGORITHM)
     key_id = parsed_input[:params][:keyid]
     created = parsed_input[:params][:created].to_i
     expires = parsed_input[:params][:expires]&.to_i
