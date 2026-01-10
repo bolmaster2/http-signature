@@ -65,7 +65,8 @@ module HTTPSignature
     nonce: nil,
     label: DEFAULT_LABEL,
     query_string_params: {},
-    include_alg: true
+    include_alg: true,
+    status: nil
   )
     unless created.is_a?(Integer)
       raise ArgumentError, "created must be a Unix timestamp integer"
@@ -94,7 +95,8 @@ module HTTPSignature
       uri:,
       method:,
       headers: normalized_headers,
-      components:
+      components:,
+      status:
     )
 
     signature_input_header, base_string = build_signature_input(
@@ -134,7 +136,8 @@ module HTTPSignature
     label: DEFAULT_LABEL,
     query_string_params: {},
     expires_in: nil,
-    algorithm: nil
+    algorithm: nil,
+    status: nil
   )
     normalized_headers = normalize_headers(headers)
 
@@ -165,7 +168,8 @@ module HTTPSignature
       uri:,
       method:,
       headers: normalized_headers,
-      components: parsed_input[:components]
+      components: parsed_input[:components],
+      status:
     )
 
     _, base_string = build_signature_input(
@@ -225,10 +229,10 @@ module HTTPSignature
     headers.merge("content-digest" => "sha-256=:#{Base64.strict_encode64(digest)}:")
   end
 
-  def self.build_components(uri:, method:, headers:, components:)
+  def self.build_components(uri:, method:, headers:, components:, status: nil)
     components.map do |component|
       if component.start_with?("@")
-        [component, derived_component(component, uri, method)]
+        [component, derived_component(component, uri, method, status:)]
       else
         value = headers[component]
         raise MissingComponent, "Missing required component: #{component}" unless value
@@ -238,7 +242,7 @@ module HTTPSignature
     end
   end
 
-  def self.derived_component(component, uri, method)
+  def self.derived_component(component, uri, method, status: nil)
     case component
     when "@method" then method.to_s.upcase
     when "@authority"
@@ -250,6 +254,9 @@ module HTTPSignature
     when "@scheme" then uri.scheme
     when "@path" then uri.path
     when "@query" then uri.query.to_s
+    when "@status"
+      raise MissingComponent, "@status requires a status code" unless status
+      status.to_s
     else
       raise MissingComponent, "Unsupported derived component: #{component}"
     end

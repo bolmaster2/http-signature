@@ -70,61 +70,89 @@ class HTTPSignatureTest < Minitest::Test
     '{"hello": "world"}'
   end
 
-  # RFC 9421 Section 3.3.3 - HMAC Using SHA-256
+  # RFC 9421 Appendix B.2.5 - Signing a Request Using hmac-sha256
+  # HMAC is deterministic, so signature must match exactly.
   def test_hmac_sha256
+    headers = {
+      "date" => "Tue, 20 Apr 2021 02:07:55 GMT",
+      "content-type" => "application/json"
+    }
+
     sig_headers = HTTPSignature.create(
       url: default_url,
       method: :post,
-      headers: default_headers,
+      headers:,
       key_id: "test-shared-secret",
       key: shared_secret,
       algorithm: "hmac-sha256",
-      components: %w[@method @authority @target-uri date],
-      created: 1_618_884_473
+      components: %w[date @authority content-type],
+      created: 1_618_884_473,
+      label: "sig-b25",
+      include_alg: false # RFC example doesn't include alg parameter
     )
 
-    assert sig_headers["Signature-Input"]
-    assert sig_headers["Signature"]
+    # RFC 9421 Appendix B.2.5 expected values
+    expected_signature_input = '("date" "@authority" "content-type");created=1618884473;keyid="test-shared-secret"'
+    expected_signature = "pxcQw6G3AjtMBQjwo8XzkZf/bws5LelbaMk5rGIGtE8="
 
-    headers = default_headers.merge(sig_headers)
+    assert_equal "sig-b25=#{expected_signature_input}", sig_headers["Signature-Input"]
+    assert_equal "sig-b25=:#{expected_signature}:", sig_headers["Signature"]
+
+    signed_headers = headers.merge(sig_headers)
 
     assert HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers:,
-      key: shared_secret
+      headers: signed_headers,
+      key: shared_secret,
+      label: "sig-b25"
     )
   end
 
-  # RFC 9421 Section 3.3.1 - RSASSA-PSS Using SHA-512
+  # RFC 9421 Appendix B.2.3 - Full Coverage Using rsa-pss-sha512
+  # RSA-PSS is non-deterministic, so we verify Signature-Input matches exactly
+  # and that the signature validates correctly.
   def test_rsa_pss_sha512
+    headers = {
+      "date" => "Tue, 20 Apr 2021 02:07:55 GMT",
+      "content-type" => "application/json",
+      "content-digest" => "sha-512=:WZDPaVn/7XgHaAy8pmojAkGWoRx2UFChF41A2svX+TaPm+AbwAgBWnrIiYllu7BNNyealdVLvRwEmTHWXvJwew==:",
+      "content-length" => "18"
+    }
+
     sig_headers = HTTPSignature.create(
       url: default_url,
       method: :post,
-      headers: default_headers,
-      body: default_body,
+      headers:,
       key_id: "test-key-rsa-pss",
       key: rsa_pss_private_key,
       algorithm: "rsa-pss-sha512",
-      components: %w[@method @authority @path content-digest],
-      created: 1_618_884_473
+      components: %w[date @method @path @query @authority content-type content-digest content-length],
+      created: 1_618_884_473,
+      label: "sig-b23",
+      include_alg: false # RFC example doesn't include alg parameter
     )
 
-    assert sig_headers["Signature-Input"]
+    # RFC 9421 Appendix B.2.3 expected Signature-Input (alg not included in RFC example)
+    expected_signature_input = '("date" "@method" "@path" "@query" "@authority" "content-type" "content-digest" "content-length");created=1618884473;keyid="test-key-rsa-pss"'
+
+    assert_equal "sig-b23=#{expected_signature_input}", sig_headers["Signature-Input"]
     assert sig_headers["Signature"]
 
-    headers = default_headers.merge(sig_headers)
+    signed_headers = headers.merge(sig_headers)
 
     assert HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers:,
-      body: default_body,
-      key: rsa_pss_public_key
+      headers: signed_headers,
+      key: rsa_pss_public_key,
+      label: "sig-b23",
+      algorithm: "rsa-pss-sha512"
     )
   end
 
   # RFC 9421 Section 3.3.2 - RSASSA-PKCS1-v1_5 Using SHA-256
+  # This algorithm is defined in RFC but not in test cases B.2, so we just verify it works.
   def test_rsa_v1_5_sha256
     sig_headers = HTTPSignature.create(
       url: default_url,
@@ -150,33 +178,52 @@ class HTTPSignatureTest < Minitest::Test
     )
   end
 
-  # RFC 9421 Section 3.3.4 - ECDSA Using Curve P-256 DSS and SHA-256
+  # RFC 9421 Appendix B.2.4 - Signing a Response Using ecdsa-p256-sha256
+  # ECDSA is non-deterministic, so we verify Signature-Input matches exactly
+  # and that the signature validates correctly.
   def test_ecdsa_p256_sha256
+    response_headers = {
+      "date" => "Tue, 20 Apr 2021 02:07:56 GMT",
+      "content-type" => "application/json",
+      "content-digest" => "sha-512=:mEWXIS7MaLRuGgxOBdODa3xqM1XdEvxoYhvlCFJ41QJgJc4GTsPp29l5oGX69wWdXymyU0rjJuahq4l5aGgfLQ==:",
+      "content-length" => "23"
+    }
+
     sig_headers = HTTPSignature.create(
       url: default_url,
       method: :post,
-      headers: default_headers,
+      headers: response_headers,
       key_id: "test-key-ecc-p256",
       key: ecc_p256_private_key,
       algorithm: "ecdsa-p256-sha256",
-      components: %w[@method @authority @path],
-      created: 1_618_884_473
+      components: %w[@status content-type content-digest content-length],
+      created: 1_618_884_473,
+      label: "sig-b24",
+      include_alg: false, # RFC example doesn't include alg parameter
+      status: 200
     )
 
-    assert sig_headers["Signature-Input"]
+    # RFC 9421 Appendix B.2.4 expected Signature-Input
+    expected_signature_input = '("@status" "content-type" "content-digest" "content-length");created=1618884473;keyid="test-key-ecc-p256"'
+
+    assert_equal "sig-b24=#{expected_signature_input}", sig_headers["Signature-Input"]
     assert sig_headers["Signature"]
 
-    headers = default_headers.merge(sig_headers)
+    signed_headers = response_headers.merge(sig_headers)
 
     assert HTTPSignature.valid?(
       url: default_url,
       method: :post,
-      headers:,
-      key: ecc_p256_public_key
+      headers: signed_headers,
+      key: ecc_p256_public_key,
+      label: "sig-b24",
+      algorithm: "ecdsa-p256-sha256",
+      status: 200
     )
   end
 
   # RFC 9421 Section 3.3.5 - ECDSA Using Curve P-384 DSS and SHA-384
+  # This algorithm is defined in RFC but not in test cases B.2, so we just verify it works.
   def test_ecdsa_p384_sha384
     sig_headers = HTTPSignature.create(
       url: default_url,
