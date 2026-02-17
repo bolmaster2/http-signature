@@ -188,8 +188,8 @@ module HTTPSignature
 
     algorithm_entry = algorithm_entry_for(algorithm || parsed_input[:params][:alg] || DEFAULT_ALGORITHM)
     key_id = parsed_input[:params][:keyid]
-    created = parsed_input[:params][:created].to_i
-    signature_expires = parsed_input[:params][:expires]&.to_i
+    created = parse_signature_timestamp(parsed_input[:params][:created], :created)
+    signature_expires = parse_signature_timestamp(parsed_input[:params][:expires], :expires, required: false)
     effective_expires = max_age ? created + max_age : signature_expires
     now = Time.now.to_i
     if effective_expires && (created > effective_expires || now > effective_expires)
@@ -452,6 +452,19 @@ module HTTPSignature
     key(key_id)
   end
 
+  def self.parse_signature_timestamp(value, param_name, required: true)
+    if value.nil?
+      raise SignatureError, "Missing required #{param_name} parameter" if required
+      return nil
+    end
+
+    unless value.match?(/\A\d+\z/)
+      raise SignatureError, "Invalid #{param_name} parameter"
+    end
+
+    value.to_i
+  end
+
   def self.rsa_key(key)
     return key if key.is_a?(OpenSSL::PKey::RSA) || key.is_a?(OpenSSL::PKey::PKey)
 
@@ -485,6 +498,10 @@ module HTTPSignature
   # Convert raw (r || s) signature to ECDSA DER format
   def self.ecdsa_raw_to_der(raw_signature, curve)
     byte_size = (curve == "prime256v1") ? 32 : 48
+    expected_size = byte_size * 2
+    unless raw_signature.is_a?(String) && raw_signature.bytesize == expected_size
+      raise SignatureError, "Invalid ECDSA signature length"
+    end
 
     r_bytes = raw_signature[0, byte_size]
     s_bytes = raw_signature[byte_size, byte_size]

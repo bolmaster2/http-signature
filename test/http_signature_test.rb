@@ -475,6 +475,46 @@ class HTTPSignatureTest < Minitest::Test
     end
   end
 
+  def test_valid_raises_when_created_parameter_is_missing
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      components: %w[@method]
+    )
+    tampered_signature_input = sig_headers.fetch("Signature-Input").sub(/;created=\d+/, "")
+    headers = default_headers.merge(sig_headers.merge("Signature-Input" => tampered_signature_input))
+
+    assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :get,
+        headers:,
+        key: shared_secret
+      )
+    end
+  end
+
+  def test_valid_raises_when_created_parameter_is_non_numeric
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      components: %w[@method]
+    )
+    tampered_signature_input = sig_headers.fetch("Signature-Input").sub(/created=\d+/, "created=not-a-number")
+    headers = default_headers.merge(sig_headers.merge("Signature-Input" => tampered_signature_input))
+
+    assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :get,
+        headers:,
+        key: shared_secret
+      )
+    end
+  end
+
   def test_rejects_expired_signature
     sig_headers = HTTPSignature.create(
       url: default_url,
@@ -663,6 +703,66 @@ class HTTPSignatureTest < Minitest::Test
         headers:,
         key: other_key
       )
+    end
+  end
+
+  def test_rejects_malformed_ecdsa_signature_length
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-key-ecc-p256",
+      key: ecc_p256_private_key,
+      algorithm: "ecdsa-p256-sha256",
+      components: %w[@method @authority]
+    )
+    malformed_signature = "sig1=:#{Base64.strict_encode64("short-signature")}:"
+    headers = default_headers.merge(sig_headers.merge("Signature" => malformed_signature))
+
+    assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key: ecc_p256_public_key,
+        algorithm: "ecdsa-p256-sha256"
+      )
+    end
+  end
+
+  def test_hmac_validation_uses_secure_compare
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      algorithm: "hmac-sha256",
+      components: %w[@method @authority]
+    )
+    headers = default_headers.merge(sig_headers)
+    secure_compare_called = false
+    module_singleton = Rack::Utils.singleton_class
+    original_secure_compare = Rack::Utils.method(:secure_compare)
+    original_verbose = $VERBOSE
+
+    $VERBOSE = nil
+    module_singleton.define_method(:secure_compare) do |a, b|
+      secure_compare_called = true
+      original_secure_compare.call(a, b)
+    end
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      key: shared_secret
+    )
+    assert secure_compare_called
+  ensure
+    if module_singleton
+      module_singleton.define_method(:secure_compare, original_secure_compare)
+      $VERBOSE = original_verbose
     end
   end
 
