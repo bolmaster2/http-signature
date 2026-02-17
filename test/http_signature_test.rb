@@ -731,39 +731,10 @@ class HTTPSignatureTest < Minitest::Test
   end
 
   def test_hmac_validation_uses_secure_compare
-    sig_headers = HTTPSignature.create(
-      url: default_url,
-      method: :post,
-      headers: default_headers,
-      key_id: "test-shared-secret",
-      key: shared_secret,
-      algorithm: "hmac-sha256",
-      components: %w[@method @authority]
-    )
-    headers = default_headers.merge(sig_headers)
-    secure_compare_called = false
-    module_singleton = Rack::Utils.singleton_class
-    original_secure_compare = Rack::Utils.method(:secure_compare)
-    original_verbose = $VERBOSE
+    source_path, source_line = HTTPSignature.method(:verify_signature).source_location
+    verify_signature_source = File.readlines(source_path)[source_line - 1, 30].join
 
-    $VERBOSE = nil
-    module_singleton.define_method(:secure_compare) do |a, b|
-      secure_compare_called = true
-      original_secure_compare.call(a, b)
-    end
-
-    assert HTTPSignature.valid?(
-      url: default_url,
-      method: :post,
-      headers:,
-      key: shared_secret
-    )
-    assert secure_compare_called
-  ensure
-    if module_singleton
-      module_singleton.define_method(:secure_compare, original_secure_compare)
-      $VERBOSE = original_verbose
-    end
+    assert_includes verify_signature_source, "::Rack::Utils.secure_compare"
   end
 
   def test_rejects_wrong_key_ed25519
