@@ -733,14 +733,14 @@ class HTTPSignatureTest < Minitest::Test
   def test_rejects_algorithm_confusion_attack
     # Generate an HMAC signature using the RSA public key as the HMAC secret manually
     # to bypass the protection in `create` which we just added.
-    
+
     url = default_url
     method = :post
     headers = default_headers
     key_id = "test-key-rsa"
     # Attack: Using public key as HMAC secret
     attack_secret = rsa_public_key.to_pem
-    
+
     # We stub asymmetric_key? to return false temporarily so we can create the attack signature
     original_method = HTTPSignature.method(:asymmetric_key?)
     original_verbose = $VERBOSE
@@ -780,7 +780,7 @@ class HTTPSignatureTest < Minitest::Test
         algorithm: "rsa-v1_5-sha256" # If server forces this, it fails.
       )
     end
-    
+
     # What if the server DOES NOT force the algorithm?
     # This should now also raise SignatureError because verify_signature prevents HMAC + Asymmetric key
     error = assert_raises(HTTPSignature::SignatureError) do
@@ -792,7 +792,7 @@ class HTTPSignatureTest < Minitest::Test
         algorithm: nil # Library infers algorithm from signature parameters
       )
     end
-    
+
     assert_equal "HMAC algorithm cannot be used with an asymmetric key", error.message
   end
 
@@ -811,7 +811,7 @@ class HTTPSignatureTest < Minitest::Test
     )
 
     signed_headers = headers.merge(sig_headers)
-    
+
     # Validation succeeds with the correct body
     assert HTTPSignature.valid?(
       url: default_url,
@@ -852,7 +852,7 @@ class HTTPSignatureTest < Minitest::Test
     )
 
     signed_headers = headers.merge(sig_headers)
-    
+
     # The server receives a body, but the signature doesn't include content-digest!
     # It should fail.
     error = assert_raises(HTTPSignature::SignatureError) do
@@ -864,7 +864,7 @@ class HTTPSignatureTest < Minitest::Test
         key: shared_secret
       )
     end
-    
+
     assert_match(/content-digest/, error.message.downcase)
   end
 

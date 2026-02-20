@@ -496,7 +496,7 @@ module HTTPSignature
   def self.asymmetric_key?(key)
     return true if key.is_a?(OpenSSL::PKey::PKey)
     return false unless key.is_a?(String)
-    
+
     # Try parsing as an OpenSSL PKey
     # Fast path for PEM encoded keys
     if key.match?(/\A\s*-----BEGIN/)
@@ -507,7 +507,7 @@ module HTTPSignature
         return false
       end
     end
-    
+
     # For binary DER encoded keys, we also attempt to parse
     # but we skip trying if it doesn't look like ASN.1 DER (starts with 0x30 Sequence)
     if key.bytes[0] == 0x30
@@ -518,7 +518,7 @@ module HTTPSignature
         return false
       end
     end
-    
+
     false
   end
 
