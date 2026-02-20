@@ -868,21 +868,6 @@ class HTTPSignatureTest < Minitest::Test
     assert_match(/content-digest/, error.message.downcase)
   end
 
-  def test_rejects_missing_target_uri_or_equivalent
-    HTTPSignature.create(
-      url: default_url,
-      method: :post,
-      headers: default_headers,
-      key_id: "test",
-      key: shared_secret,
-      components: %w[@method] # missing @target-uri or @authority/@path
-    )
-
-    # We do not strictly enforce URL coverage in `valid?` because some RFC examples
-    # (like B.2.4 Response signing) or partial signatures do not include them.
-    # However, it's good practice for the caller to verify `components` includes what they expect.
-  end
-
   def test_hmac_validation_uses_secure_compare
     sig_headers = HTTPSignature.create(
       url: default_url,
