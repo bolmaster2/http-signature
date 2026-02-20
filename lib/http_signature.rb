@@ -199,6 +199,10 @@ module HTTPSignature
     raise SignatureError, "Key is required for verification" unless resolved_key
 
     uri = apply_query_params(URI(url), query_string_params)
+    if !body.to_s.empty? && !parsed_input[:components].include?("content-digest")
+      raise SignatureError, "content-digest component is required when body is present"
+    end
+
     if parsed_input[:components].include?("content-digest")
       normalized_headers = ensure_content_digest(normalized_headers, body)
     end
@@ -361,6 +365,10 @@ module HTTPSignature
   end
 
   def self.sign(base_string, key:, algorithm:)
+    if algorithm.type == :hmac && asymmetric_key?(key)
+      raise SignatureError, "HMAC algorithm cannot be used with an asymmetric key"
+    end
+
     case algorithm.type
     when :hmac
       OpenSSL::HMAC.digest(algorithm.digest_name, key, base_string)
@@ -387,6 +395,10 @@ module HTTPSignature
   end
 
   def self.verify_signature(base_string, signature_bytes, key, algorithm)
+    if algorithm.type == :hmac && asymmetric_key?(key)
+      raise SignatureError, "HMAC algorithm cannot be used with an asymmetric key"
+    end
+
     case algorithm.type
     when :hmac
       expected = OpenSSL::HMAC.digest(algorithm.digest_name, key, base_string)
@@ -479,6 +491,35 @@ module HTTPSignature
     return key if key.is_a?(OpenSSL::PKey::PKey)
 
     OpenSSL::PKey.read(key)
+  end
+
+  def self.asymmetric_key?(key)
+    return true if key.is_a?(OpenSSL::PKey::PKey)
+    return false unless key.is_a?(String)
+    
+    # Try parsing as an OpenSSL PKey
+    # Fast path for PEM encoded keys
+    if key.match?(/\A\s*-----BEGIN/)
+      begin
+        OpenSSL::PKey.read(key)
+        return true
+      rescue ArgumentError, OpenSSL::PKey::PKeyError
+        return false
+      end
+    end
+    
+    # For binary DER encoded keys, we also attempt to parse
+    # but we skip trying if it doesn't look like ASN.1 DER (starts with 0x30 Sequence)
+    if key.bytes[0] == 0x30
+      begin
+        OpenSSL::PKey.read(key)
+        return true
+      rescue ArgumentError, OpenSSL::PKey::PKeyError
+        return false
+      end
+    end
+    
+    false
   end
 
   # Convert ECDSA DER signature to raw (r || s) format per RFC 9421
