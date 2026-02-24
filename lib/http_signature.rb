@@ -274,10 +274,33 @@ module HTTPSignature
 
   def self.ensure_content_digest(headers, body)
     return headers if body.to_s.empty?
-    return headers if headers["content-digest"]
+
+    if headers["content-digest"]
+      verify_content_digest!(headers["content-digest"], body)
+      return headers
+    end
 
     digest = Digest::SHA256.digest(body)
     headers.merge("content-digest" => "sha-256=:#{Base64.strict_encode64(digest)}:")
+  end
+
+  def self.verify_content_digest!(header_value, body)
+    verified = false
+
+    header_value.scan(/([a-z0-9-]+)=:([A-Za-z0-9+\/=]+):/).each do |alg, encoded_digest|
+      digest = case alg
+      when "sha-256" then Digest::SHA256.digest(body)
+      when "sha-512" then Digest::SHA512.digest(body)
+      end
+      next unless digest
+
+      unless digest == Base64.strict_decode64(encoded_digest)
+        raise SignatureError, "Content-Digest mismatch: body does not match #{alg} digest"
+      end
+      verified = true
+    end
+
+    raise SignatureError, "Content-Digest header contains no supported algorithm" unless verified
   end
 
   def self.build_components(uri:, method:, headers:, components:, status: nil)

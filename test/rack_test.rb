@@ -70,7 +70,7 @@ describe HTTPSignature::Rack do
       "CONTENT_TYPE" => "application/json",
       "HTTP_SIGNATURE_INPUT" => sig_headers["Signature-Input"],
       "HTTP_SIGNATURE" => sig_headers["Signature"],
-      input: body
+      :input => body
     )
 
     assert_equal 200, response.status, "Expected 200 but got #{response.status}: #{response.body}"

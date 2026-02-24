@@ -99,6 +99,26 @@ async function testPostWithBodyAndContentDigest() {
   return assertStatus(res, 200, "POST with body and content-digest accepted (200)");
 }
 
+async function testPostWithMismatchedContentDigest() {
+  const url = urlFor("/webhook");
+  const body = JSON.stringify({ event: "user.created", id: 42 });
+  const digestBytes = crypto.createHash("sha256").update(body).digest();
+  const contentDigest = `sha-256=:${digestBytes.toString("base64")}:`;
+
+  const sigHeaders = await signatureHeaders(
+    { method: "POST", url, headers: { "content-type": "application/json", "content-digest": contentDigest } },
+    { signer, components: ["@method", "@authority", "content-type", "content-digest"], created: Math.floor(Date.now() / 1000) }
+  );
+
+  const tamperedBody = JSON.stringify({ event: "user.created", id: 99 });
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { ...sigHeaders, "Content-Type": "application/json", "Content-Digest": contentDigest },
+    body: tamperedBody,
+  });
+  return assertStatus(res, 401, "POST with mismatched content-digest rejected (401)");
+}
+
 async function testFullCoverageMultiComponent() {
   const url = cleanUrl(urlFor("/protected?a=1&b=2"));
   const headers = await signatureHeaders(
@@ -117,6 +137,7 @@ async function main() {
     testPathComponent(),
     testDateHeaderComponent(),
     testPostWithBodyAndContentDigest(),
+    testPostWithMismatchedContentDigest(),
     testFullCoverageMultiComponent(),
   ]);
 
