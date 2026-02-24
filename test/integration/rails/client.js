@@ -86,6 +86,26 @@ async function main() {
     failed = true;
   }
 
+  // Signed request with @path component (RFC 9421 interop)
+  const pathSignedHeaders = await signatureHeaders(
+    { method: "GET", url: targetUriStr, headers: {} },
+    {
+      signer,
+      components: ["@method", "@authority", "@path"],
+      created: Math.floor(Date.now() / 1000),
+    }
+  );
+
+  const pathRes = await fetch(url, { headers: pathSignedHeaders });
+  if (pathRes.status === 200) {
+    pass("Signed request with @path component accepted (200)");
+  } else {
+    fail(
+      `Signed request with @path: expected 200, got ${pathRes.status} - ${await pathRes.text()}`
+    );
+    failed = true;
+  }
+
   if (failed) process.exit(1);
 }
 
