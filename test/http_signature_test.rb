@@ -395,6 +395,42 @@ class HTTPSignatureTest < Minitest::Test
     assert_includes sig_input, 'nonce="nonce\"value\\\\and\\\\more"'
   end
 
+  def test_roundtrip_with_special_characters_in_key_id
+    key_id = 'key"with"quotes'
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id:,
+      key: shared_secret,
+      components: %w[@method],
+      created: 1
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    resolved_key_id = nil
+    resolver = ->(kid) {
+      resolved_key_id = kid
+      shared_secret
+    }
+
+    begin
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key_resolver: resolver
+      )
+    rescue HTTPSignature::SignatureError
+      # Signature fails because corrupted key_id also corrupts the base string
+    end
+
+    assert_equal key_id, resolved_key_id,
+      "key_id should round-trip through create/parse: expected #{key_id.inspect}, got #{resolved_key_id.inspect}"
+  end
+
   def test_signature_input_includes_expires_param
     sig_headers = HTTPSignature.create(
       url: default_url,
@@ -730,6 +766,144 @@ class HTTPSignatureTest < Minitest::Test
     end
   end
 
+  def test_rejects_algorithm_confusion_attack
+    # Generate an HMAC signature using the RSA public key as the HMAC secret manually
+    # to bypass the protection in `create` which we just added.
+
+    url = default_url
+    method = :post
+    headers = default_headers
+    key_id = "test-key-rsa"
+    # Attack: Using public key as HMAC secret
+    attack_secret = rsa_public_key.to_pem
+
+    # We stub asymmetric_key? to return false temporarily so we can create the attack signature
+    original_method = HTTPSignature.method(:asymmetric_key?)
+    original_verbose = $VERBOSE
+    begin
+      $VERBOSE = nil
+      HTTPSignature.define_singleton_method(:asymmetric_key?) { |key| false }
+      $VERBOSE = original_verbose
+
+      sig_headers = HTTPSignature.create(
+        url:,
+        method:,
+        headers:,
+        key_id:,
+        key: attack_secret,
+        algorithm: "hmac-sha256",
+        components: %w[@method @authority @path],
+        created: 1_618_884_480
+      )
+    ensure
+      $VERBOSE = nil
+      HTTPSignature.define_singleton_method(:asymmetric_key?, original_method)
+      $VERBOSE = original_verbose
+    end
+
+    headers = default_headers.merge(sig_headers)
+
+    # The server expects RSA verification with the public key
+    assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key: rsa_public_key,
+        # Server expects RSA, but the attacker's signature specifies hmac-sha256.
+        # If the library trusts the attacker's alg, it might use the RSA public key
+        # as an HMAC secret, which would succeed if not protected!
+        algorithm: "rsa-v1_5-sha256" # If server forces this, it fails.
+      )
+    end
+
+    # What if the server DOES NOT force the algorithm?
+    # This should now also raise SignatureError because verify_signature prevents HMAC + Asymmetric key
+    error = assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key: attack_secret, # Server passes public key as PEM string
+        algorithm: nil # Library infers algorithm from signature parameters
+      )
+    end
+
+    assert_equal "HMAC algorithm cannot be used with an asymmetric key", error.message
+  end
+
+  def test_rejects_mismatched_content_digest
+    body = '{"hello":"world"}'
+    headers = {"content-type" => "application/json"}
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers:,
+      body:,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[content-digest]
+    )
+
+    signed_headers = headers.merge(sig_headers)
+
+    # Validation succeeds with the correct body
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers: signed_headers,
+      body: body,
+      key: shared_secret
+    )
+
+    # If the attacker changes the body but keeps the valid content-digest header and signature,
+    # validation SHOULD fail!
+    malicious_body = '{"hello":"attacker"}'
+    assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers: signed_headers,
+        body: malicious_body,
+        key: shared_secret
+      )
+    end
+  end
+
+  def test_verify_rejects_missing_content_digest_if_body_present
+    body = '{"hello":"world"}'
+    headers = {"content-type" => "application/json"}
+
+    # Suppose an attacker tries to bypass body verification by completely
+    # stripping content-digest from the components list and omitting the header
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers:,
+      body: "", # Trick create into not requiring content-digest
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method content-type]
+    )
+
+    signed_headers = headers.merge(sig_headers)
+
+    # The server receives a body, but the signature doesn't include content-digest!
+    # It should fail.
+    error = assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers: signed_headers,
+        body: body, # The actual body received
+        key: shared_secret
+      )
+    end
+
+    assert_match(/content-digest/, error.message.downcase)
+  end
+
   def test_hmac_validation_uses_secure_compare
     sig_headers = HTTPSignature.create(
       url: default_url,
@@ -742,14 +916,13 @@ class HTTPSignatureTest < Minitest::Test
     )
     headers = default_headers.merge(sig_headers)
     secure_compare_called = false
-    module_singleton = Rack::Utils.singleton_class
-    original_secure_compare = Rack::Utils.method(:secure_compare)
+    original = OpenSSL.method(:fixed_length_secure_compare)
     original_verbose = $VERBOSE
 
     $VERBOSE = nil
-    module_singleton.define_method(:secure_compare) do |a, b|
+    OpenSSL.define_singleton_method(:fixed_length_secure_compare) do |a, b|
       secure_compare_called = true
-      original_secure_compare.call(a, b)
+      original.call(a, b)
     end
 
     assert HTTPSignature.valid?(
@@ -760,8 +933,9 @@ class HTTPSignatureTest < Minitest::Test
     )
     assert secure_compare_called
   ensure
-    if module_singleton
-      module_singleton.define_method(:secure_compare, original_secure_compare)
+    if original
+      $VERBOSE = nil
+      OpenSSL.define_singleton_method(:fixed_length_secure_compare, original)
       $VERBOSE = original_verbose
     end
   end
@@ -789,6 +963,187 @@ class HTTPSignatureTest < Minitest::Test
         key: other_key
       )
     end
+  end
+
+  # -- #10: Derived component edge cases --
+
+  def test_query_component_with_no_query_string
+    url = "https://example.com/foo"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method @query],
+      created: 1
+    )
+
+    assert_includes sig_headers["Signature-Input"], '"@query"'
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  def test_path_component_with_empty_path
+    url = "https://example.com"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method @path],
+      created: 1
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  def test_authority_component_with_non_standard_port
+    url = "https://example.com:8443/foo"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method @authority],
+      created: 1
+    )
+
+    assert_includes sig_headers["Signature-Input"], '"@authority"'
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  def test_scheme_component
+    url = "https://example.com/foo"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method @scheme],
+      created: 1
+    )
+
+    assert_includes sig_headers["Signature-Input"], '"@scheme"'
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  # -- #11: key_resolver callback --
+
+  def test_key_resolver_is_called_with_key_id
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :get,
+      headers: default_headers,
+      key_id: "my-key-id",
+      key: shared_secret,
+      components: %w[@method]
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    resolved_key_id = nil
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :get,
+      headers:,
+      key_resolver: ->(kid) {
+        resolved_key_id = kid
+        shared_secret
+      }
+    )
+
+    assert_equal "my-key-id", resolved_key_id
+  end
+
+  # -- #12: hmac-sha512 --
+
+  def test_hmac_sha512
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      algorithm: "hmac-sha512",
+      components: %w[@method @authority]
+    )
+
+    assert sig_headers["Signature-Input"]
+    assert sig_headers["Signature"]
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  # -- #13: nonce round-trip --
+
+  def test_nonce_roundtrip_in_verification
+    nonce = "unique-nonce-value-12345"
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :get,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      components: %w[@method],
+      nonce:
+    )
+
+    assert_includes sig_headers["Signature-Input"], %(nonce="#{nonce}")
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
   end
 
   def test_raises_on_unsupported_algorithm

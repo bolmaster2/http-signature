@@ -52,10 +52,15 @@ class HTTPSignature::Rack
   def parse_request_headers(request)
     request_headers = {}
 
-    request.each_header do |header|
-      if header[0].include?("HTTP_") && header[0] != "HTTP_VERSION"
-        request_headers[header[0].gsub("HTTP_", "").tr("_", "-").downcase] = header[1]
+    request.each_header do |key, value|
+      if key.start_with?("HTTP_") && key != "HTTP_VERSION"
+        request_headers[key.sub("HTTP_", "").tr("_", "-").downcase] = value
       end
+    end
+
+    %w[CONTENT_TYPE CONTENT_LENGTH].each do |env_key|
+      value = request.get_header(env_key)
+      request_headers[env_key.downcase.tr("_", "-")] = value if value
     end
 
     request_headers

@@ -4,7 +4,6 @@ require "openssl"
 require "base64"
 require "uri"
 require "digest"
-require "rack/utils"
 
 # Implements HTTP Message Signatures per RFC 9421.
 module HTTPSignature
@@ -199,6 +198,10 @@ module HTTPSignature
     raise SignatureError, "Key is required for verification" unless resolved_key
 
     uri = apply_query_params(URI(url), query_string_params)
+    if !body.to_s.empty? && !parsed_input[:components].include?("content-digest")
+      raise SignatureError, "content-digest component is required when body is present"
+    end
+
     if parsed_input[:components].include?("content-digest")
       normalized_headers = ensure_content_digest(normalized_headers, body)
     end
@@ -271,10 +274,33 @@ module HTTPSignature
 
   def self.ensure_content_digest(headers, body)
     return headers if body.to_s.empty?
-    return headers if headers["content-digest"]
+
+    if headers["content-digest"]
+      verify_content_digest!(headers["content-digest"], body)
+      return headers
+    end
 
     digest = Digest::SHA256.digest(body)
     headers.merge("content-digest" => "sha-256=:#{Base64.strict_encode64(digest)}:")
+  end
+
+  def self.verify_content_digest!(header_value, body)
+    verified = false
+
+    header_value.scan(/([a-z0-9-]+)=:([A-Za-z0-9+\/=]+):/).each do |alg, encoded_digest|
+      digest = case alg
+      when "sha-256" then Digest::SHA256.digest(body)
+      when "sha-512" then Digest::SHA512.digest(body)
+      end
+      next unless digest
+
+      unless digest == Base64.strict_decode64(encoded_digest)
+        raise SignatureError, "Content-Digest mismatch: body does not match #{alg} digest"
+      end
+      verified = true
+    end
+
+    raise SignatureError, "Content-Digest header contains no supported algorithm" unless verified
   end
 
   def self.build_components(uri:, method:, headers:, components:, status: nil)
@@ -300,8 +326,10 @@ module HTTPSignature
     when "@target-uri"
       uri.dup.tap { |u| u.fragment = nil }.to_s
     when "@scheme" then uri.scheme
-    when "@path" then uri.path
-    when "@query" then uri.query.to_s
+    when "@path"
+      path = uri.path
+      path.empty? ? "/" : path
+    when "@query" then "?#{uri.query}"
     when "@status"
       raise MissingComponent, "@status requires a status code" unless status
       status.to_s
@@ -316,6 +344,13 @@ module HTTPSignature
 
   def self.escape_structured_string(value)
     value.to_s.gsub("\\") { "\\\\" }.gsub('"') { '\"' }
+  end
+
+  def self.unescape_structured_string(value)
+    return value unless value
+
+    value.delete_prefix('"').delete_suffix('"')
+      .gsub('\\"', '"').gsub("\\\\", "\\")
   end
 
   def self.build_signature_input(
@@ -361,6 +396,10 @@ module HTTPSignature
   end
 
   def self.sign(base_string, key:, algorithm:)
+    if algorithm.type == :hmac && asymmetric_key?(key)
+      raise SignatureError, "HMAC algorithm cannot be used with an asymmetric key"
+    end
+
     case algorithm.type
     when :hmac
       OpenSSL::HMAC.digest(algorithm.digest_name, key, base_string)
@@ -387,10 +426,15 @@ module HTTPSignature
   end
 
   def self.verify_signature(base_string, signature_bytes, key, algorithm)
+    if algorithm.type == :hmac && asymmetric_key?(key)
+      raise SignatureError, "HMAC algorithm cannot be used with an asymmetric key"
+    end
+
     case algorithm.type
     when :hmac
       expected = OpenSSL::HMAC.digest(algorithm.digest_name, key, base_string)
-      ::Rack::Utils.secure_compare(expected, signature_bytes)
+      expected.bytesize == signature_bytes.bytesize &&
+        OpenSSL.fixed_length_secure_compare(expected, signature_bytes)
     when :rsa_pss
       pkey = rsa_key(key)
       # Use generic verify with RSA-PSS options (works with all key types)
@@ -423,7 +467,7 @@ module HTTPSignature
 
     params = entry.split(");").last&.split(";")&.map do |p|
       key, value = p.split("=", 2)
-      [key.to_sym, value&.tr('"', "")]
+      [key.to_sym, unescape_structured_string(value)]
     end.to_h
 
     {components:, params:}
@@ -479,6 +523,45 @@ module HTTPSignature
     return key if key.is_a?(OpenSSL::PKey::PKey)
 
     OpenSSL::PKey.read(key)
+  end
+
+  def self.asymmetric_key?(key)
+    return true if key.is_a?(OpenSSL::PKey::PKey)
+    return false unless key.is_a?(String)
+
+    pkey = nil
+
+    # Try parsing as an OpenSSL PKey
+    # Fast path for PEM encoded keys
+    if key.match?(/\A\s*-----BEGIN/)
+      begin
+        pkey = OpenSSL::PKey.read(key)
+      rescue ArgumentError, OpenSSL::PKey::PKeyError
+        return false
+      end
+    # For binary DER, only attempt parse if it looks like ASN.1 SEQUENCE (0x30)
+    # to avoid misclassifying raw HMAC secrets that start with 0x30 as asymmetric
+    elsif key.bytes[0] == 0x30
+      begin
+        pkey = OpenSSL::PKey.read(key)
+      rescue ArgumentError, OpenSSL::PKey::PKeyError
+        return false
+      end
+    end
+
+    return false unless pkey
+
+    # Only treat as asymmetric if parsed to a known key type with sane structure,
+    # so raw binary that parses as arbitrary DER is not misclassified as a key
+    case pkey
+    when OpenSSL::PKey::RSA
+      pkey.n&.num_bits.to_i >= 512
+    when OpenSSL::PKey::EC
+      true
+    else
+      # Ed25519 or other PKey subclass
+      true
+    end
   end
 
   # Convert ECDSA DER signature to raw (r || s) format per RFC 9421

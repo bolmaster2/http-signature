@@ -33,4 +33,18 @@ describe HTTPSignature::Faraday do
     assert captured_env[:request_headers]["Signature-Input"]
     assert captured_env[:request_headers]["Signature"]
   end
+
+  it "raises when key and key_id are not set" do
+    HTTPSignature::Faraday.key = nil
+    HTTPSignature::Faraday.key_id = nil
+
+    conn = Faraday.new("http://example.com") do |faraday|
+      faraday.use(HTTPSignature::Faraday)
+      faraday.adapter(:test) do |stub|
+        stub.get("/") { [200, {}, "ok"] }
+      end
+    end
+
+    assert_raises(RuntimeError) { conn.get("/") }
+  end
 end
