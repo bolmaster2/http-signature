@@ -410,7 +410,8 @@ module HTTPSignature
     case algorithm.type
     when :hmac
       expected = OpenSSL::HMAC.digest(algorithm.digest_name, key, base_string)
-      OpenSSL.fixed_length_secure_compare(expected, signature_bytes)
+      expected.bytesize == signature_bytes.bytesize &&
+        OpenSSL.fixed_length_secure_compare(expected, signature_bytes)
     when :rsa_pss
       pkey = rsa_key(key)
       # Use generic verify with RSA-PSS options (works with all key types)

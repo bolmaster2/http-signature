@@ -965,6 +965,187 @@ class HTTPSignatureTest < Minitest::Test
     end
   end
 
+  # -- #10: Derived component edge cases --
+
+  def test_query_component_with_no_query_string
+    url = "https://example.com/foo"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method @query],
+      created: 1
+    )
+
+    assert_includes sig_headers["Signature-Input"], '"@query"'
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  def test_path_component_with_empty_path
+    url = "https://example.com"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method @path],
+      created: 1
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  def test_authority_component_with_non_standard_port
+    url = "https://example.com:8443/foo"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method @authority],
+      created: 1
+    )
+
+    assert_includes sig_headers["Signature-Input"], '"@authority"'
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  def test_scheme_component
+    url = "https://example.com/foo"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method @scheme],
+      created: 1
+    )
+
+    assert_includes sig_headers["Signature-Input"], '"@scheme"'
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  # -- #11: key_resolver callback --
+
+  def test_key_resolver_is_called_with_key_id
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :get,
+      headers: default_headers,
+      key_id: "my-key-id",
+      key: shared_secret,
+      components: %w[@method]
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    resolved_key_id = nil
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :get,
+      headers:,
+      key_resolver: ->(kid) {
+        resolved_key_id = kid
+        shared_secret
+      }
+    )
+
+    assert_equal "my-key-id", resolved_key_id
+  end
+
+  # -- #12: hmac-sha512 --
+
+  def test_hmac_sha512
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      algorithm: "hmac-sha512",
+      components: %w[@method @authority]
+    )
+
+    assert sig_headers["Signature-Input"]
+    assert sig_headers["Signature"]
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  # -- #13: nonce round-trip --
+
+  def test_nonce_roundtrip_in_verification
+    nonce = "unique-nonce-value-12345"
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :get,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      components: %w[@method],
+      nonce:
+    )
+
+    assert_includes sig_headers["Signature-Input"], %(nonce="#{nonce}")
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
   def test_raises_on_unsupported_algorithm
     assert_raises(HTTPSignature::UnsupportedAlgorithm) do
       HTTPSignature.create(
