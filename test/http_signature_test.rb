@@ -880,14 +880,13 @@ class HTTPSignatureTest < Minitest::Test
     )
     headers = default_headers.merge(sig_headers)
     secure_compare_called = false
-    module_singleton = Rack::Utils.singleton_class
-    original_secure_compare = Rack::Utils.method(:secure_compare)
+    original = OpenSSL.method(:fixed_length_secure_compare)
     original_verbose = $VERBOSE
 
     $VERBOSE = nil
-    module_singleton.define_method(:secure_compare) do |a, b|
+    OpenSSL.define_singleton_method(:fixed_length_secure_compare) do |a, b|
       secure_compare_called = true
-      original_secure_compare.call(a, b)
+      original.call(a, b)
     end
 
     assert HTTPSignature.valid?(
@@ -898,8 +897,9 @@ class HTTPSignatureTest < Minitest::Test
     )
     assert secure_compare_called
   ensure
-    if module_singleton
-      module_singleton.define_method(:secure_compare, original_secure_compare)
+    if original
+      $VERBOSE = nil
+      OpenSSL.define_singleton_method(:fixed_length_secure_compare, original)
       $VERBOSE = original_verbose
     end
   end

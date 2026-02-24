@@ -4,7 +4,6 @@ require "openssl"
 require "base64"
 require "uri"
 require "digest"
-require "rack/utils"
 
 # Implements HTTP Message Signatures per RFC 9421.
 module HTTPSignature
@@ -402,7 +401,7 @@ module HTTPSignature
     case algorithm.type
     when :hmac
       expected = OpenSSL::HMAC.digest(algorithm.digest_name, key, base_string)
-      ::Rack::Utils.secure_compare(expected, signature_bytes)
+      OpenSSL.fixed_length_secure_compare(expected, signature_bytes)
     when :rsa_pss
       pkey = rsa_key(key)
       # Use generic verify with RSA-PSS options (works with all key types)
