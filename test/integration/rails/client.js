@@ -1,112 +1,126 @@
 import crypto from "crypto";
 import { signatureHeaders } from "http-message-sig";
 
-function pass(msg) {
-  console.log(`✅ ${msg}`);
+const base = process.argv[2] || "http://localhost:3000";
+
+const signer = {
+  keyid: "key-1",
+  alg: "hmac-sha256",
+  sign: (data) => {
+    const hmac = crypto.createHmac("sha256", "MySecureKey");
+    hmac.update(data);
+    return Uint8Array.from(hmac.digest());
+  },
+};
+
+function urlFor(path) {
+  return `${base.replace(/\/$/, "")}${path}`;
 }
 
-function fail(msg) {
-  console.error(`❌ ${msg}`);
+function cleanUrl(url) {
+  const u = new URL(url);
+  u.hash = "";
+  return u.toString();
+}
+
+async function assertStatus(res, expected, label) {
+  if (res.status === expected) {
+    console.log(`✅ ${label}`);
+    return true;
+  }
+  console.error(
+    `❌ ${label}: expected ${expected}, got ${res.status} - ${await res.text()}`
+  );
+  return false;
+}
+
+async function testUnsignedRequestRejected() {
+  const res = await fetch(urlFor("/protected"));
+  return assertStatus(res, 401, "Unsigned request rejected (401)");
+}
+
+async function testSignedRequest() {
+  const url = cleanUrl(urlFor("/protected"));
+  const headers = await signatureHeaders(
+    { method: "GET", url, headers: {} },
+    { signer, components: ["@method", "@authority", "@target-uri"], created: Math.floor(Date.now() / 1000) }
+  );
+  const res = await fetch(url, { headers });
+  return assertStatus(res, 200, "Signed request accepted (200)");
+}
+
+async function testQueryComponent() {
+  const url = cleanUrl(urlFor("/protected?foo=bar"));
+  const headers = await signatureHeaders(
+    { method: "GET", url, headers: {} },
+    { signer, components: ["@method", "@authority", "@query"], created: Math.floor(Date.now() / 1000) }
+  );
+  const res = await fetch(url, { headers });
+  return assertStatus(res, 200, "Signed request with @query component accepted (200)");
+}
+
+async function testPathComponent() {
+  const url = cleanUrl(urlFor("/protected"));
+  const headers = await signatureHeaders(
+    { method: "GET", url, headers: {} },
+    { signer, components: ["@method", "@authority", "@path"], created: Math.floor(Date.now() / 1000) }
+  );
+  const res = await fetch(url, { headers });
+  return assertStatus(res, 200, "Signed request with @path component accepted (200)");
+}
+
+async function testDateHeaderComponent() {
+  const url = cleanUrl(urlFor("/protected"));
+  const date = new Date().toUTCString();
+  const sigHeaders = await signatureHeaders(
+    { method: "GET", url, headers: { date } },
+    { signer, components: ["@method", "@authority", "date"], created: Math.floor(Date.now() / 1000) }
+  );
+  const res = await fetch(url, { headers: { ...sigHeaders, Date: date } });
+  return assertStatus(res, 200, "Signed request with date header component accepted (200)");
+}
+
+async function testPostWithBodyAndContentDigest() {
+  const url = urlFor("/webhook");
+  const body = JSON.stringify({ event: "user.created", id: 42 });
+  const digestBytes = crypto.createHash("sha256").update(body).digest();
+  const contentDigest = `sha-256=:${digestBytes.toString("base64")}:`;
+
+  const sigHeaders = await signatureHeaders(
+    { method: "POST", url, headers: { "content-type": "application/json", "content-digest": contentDigest } },
+    { signer, components: ["@method", "@authority", "content-type", "content-digest"], created: Math.floor(Date.now() / 1000) }
+  );
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { ...sigHeaders, "Content-Type": "application/json", "Content-Digest": contentDigest },
+    body,
+  });
+  return assertStatus(res, 200, "POST with body and content-digest accepted (200)");
+}
+
+async function testFullCoverageMultiComponent() {
+  const url = cleanUrl(urlFor("/protected?a=1&b=2"));
+  const headers = await signatureHeaders(
+    { method: "GET", url, headers: {} },
+    { signer, components: ["@method", "@path", "@query", "@scheme", "@authority"], created: Math.floor(Date.now() / 1000) }
+  );
+  const res = await fetch(url, { headers });
+  return assertStatus(res, 200, "Full-coverage multi-component GET accepted (200)");
 }
 
 async function main() {
-  const base = process.argv[2] || "http://localhost:3000";
-  const url = `${base.replace(/\/$/, "")}/protected`;
-  const targetUri = new URL(url);
-  targetUri.hash = "";
-  const targetUriStr = targetUri.toString();
+  const results = await Promise.all([
+    testUnsignedRequestRejected(),
+    testSignedRequest(),
+    testQueryComponent(),
+    testPathComponent(),
+    testDateHeaderComponent(),
+    testPostWithBodyAndContentDigest(),
+    testFullCoverageMultiComponent(),
+  ]);
 
-  const signer = {
-    keyid: "key-1",
-    alg: "hmac-sha256",
-    sign: (data) => {
-      const hmac = crypto.createHmac("sha256", "MySecureKey");
-      hmac.update(data);
-      return Uint8Array.from(hmac.digest());
-    },
-  };
-
-  let failed = false;
-
-  // Unsigned request should be rejected
-  try {
-    const res = await fetch(url);
-    if (res.status === 401) {
-      pass("Unsigned request rejected (401)");
-    } else {
-      fail(`Unsigned request: expected 401, got ${res.status}`);
-      failed = true;
-    }
-  } catch (err) {
-    fail(`Unsigned request error: ${err.message}`);
-    failed = true;
-  }
-
-  // Signed request should succeed
-  const signedHeaders = await signatureHeaders(
-    { method: "GET", url: targetUriStr, headers: {} },
-    {
-      signer,
-      components: ["@method", "@authority", "@target-uri"],
-      created: Math.floor(Date.now() / 1000),
-    }
-  );
-
-  const signedRes = await fetch(url, { headers: signedHeaders });
-  if (signedRes.status === 200) {
-    pass("Signed request accepted (200)");
-  } else {
-    fail(
-      `Signed request: expected 200, got ${signedRes.status} - ${await signedRes.text()}`
-    );
-    failed = true;
-  }
-
-  // Signed request with @query component (RFC 9421 interop)
-  const queryUrl = `${base.replace(/\/$/, "")}/protected?foo=bar`;
-  const queryTargetUri = new URL(queryUrl);
-  queryTargetUri.hash = "";
-
-  const querySignedHeaders = await signatureHeaders(
-    { method: "GET", url: queryTargetUri.toString(), headers: {} },
-    {
-      signer,
-      components: ["@method", "@authority", "@query"],
-      created: Math.floor(Date.now() / 1000),
-    }
-  );
-
-  const queryRes = await fetch(queryUrl, { headers: querySignedHeaders });
-  if (queryRes.status === 200) {
-    pass("Signed request with @query component accepted (200)");
-  } else {
-    fail(
-      `Signed request with @query: expected 200, got ${queryRes.status} - ${await queryRes.text()}`
-    );
-    failed = true;
-  }
-
-  // Signed request with @path component (RFC 9421 interop)
-  const pathSignedHeaders = await signatureHeaders(
-    { method: "GET", url: targetUriStr, headers: {} },
-    {
-      signer,
-      components: ["@method", "@authority", "@path"],
-      created: Math.floor(Date.now() / 1000),
-    }
-  );
-
-  const pathRes = await fetch(url, { headers: pathSignedHeaders });
-  if (pathRes.status === 200) {
-    pass("Signed request with @path component accepted (200)");
-  } else {
-    fail(
-      `Signed request with @path: expected 200, got ${pathRes.status} - ${await pathRes.text()}`
-    );
-    failed = true;
-  }
-
-  if (failed) process.exit(1);
+  if (results.some((ok) => !ok)) process.exit(1);
 }
 
 main().catch((err) => {

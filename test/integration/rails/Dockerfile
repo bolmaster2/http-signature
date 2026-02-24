@@ -20,6 +20,7 @@ COPY <<-"EOF" config/routes.rb
 Rails.application.routes.draw do
   root "rails/welcome#index"
   get "/protected", to: "protected#show"
+  post "/webhook", to: "protected#webhook"
 end
 EOF
 
@@ -29,11 +30,16 @@ require "http_signature/rails"
 
 class ProtectedController < ApplicationController
   include HTTPSignature::Rails::Controller
+  skip_forgery_protection
 
   before_action :verify_http_signature!
 
   def show
     render json: {message: "Authenticated request"}
+  end
+
+  def webhook
+    render json: {message: "Webhook received"}
   end
 end
 EOF
