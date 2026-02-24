@@ -395,6 +395,42 @@ class HTTPSignatureTest < Minitest::Test
     assert_includes sig_input, 'nonce="nonce\"value\\\\and\\\\more"'
   end
 
+  def test_roundtrip_with_special_characters_in_key_id
+    key_id = 'key"with"quotes'
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: default_headers,
+      key_id:,
+      key: shared_secret,
+      components: %w[@method],
+      created: 1
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    resolved_key_id = nil
+    resolver = ->(kid) {
+      resolved_key_id = kid
+      shared_secret
+    }
+
+    begin
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers:,
+        key_resolver: resolver
+      )
+    rescue HTTPSignature::SignatureError
+      # Signature fails because corrupted key_id also corrupts the base string
+    end
+
+    assert_equal key_id, resolved_key_id,
+      "key_id should round-trip through create/parse: expected #{key_id.inspect}, got #{resolved_key_id.inspect}"
+  end
+
   def test_signature_input_includes_expires_param
     sig_headers = HTTPSignature.create(
       url: default_url,

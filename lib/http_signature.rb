@@ -323,6 +323,13 @@ module HTTPSignature
     value.to_s.gsub("\\") { "\\\\" }.gsub('"') { '\"' }
   end
 
+  def self.unescape_structured_string(value)
+    return value unless value
+
+    value.delete_prefix('"').delete_suffix('"')
+      .gsub('\\"', '"').gsub("\\\\", "\\")
+  end
+
   def self.build_signature_input(
     label:,
     components:,
@@ -436,7 +443,7 @@ module HTTPSignature
 
     params = entry.split(");").last&.split(";")&.map do |p|
       key, value = p.split("=", 2)
-      [key.to_sym, value&.tr('"', "")]
+      [key.to_sym, unescape_structured_string(value)]
     end.to_h
 
     {components:, params:}
