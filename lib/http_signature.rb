@@ -557,7 +557,7 @@ module HTTPSignature
     when OpenSSL::PKey::RSA
       pkey.n&.num_bits.to_i >= 512
     when OpenSSL::PKey::EC
-      pkey.group&.curve_name
+      true
     else
       # Ed25519 or other PKey subclass
       true
