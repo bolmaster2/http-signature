@@ -303,8 +303,10 @@ module HTTPSignature
     when "@target-uri"
       uri.dup.tap { |u| u.fragment = nil }.to_s
     when "@scheme" then uri.scheme
-    when "@path" then uri.path
-    when "@query" then uri.query.to_s
+    when "@path"
+      path = uri.path
+      path.empty? ? "/" : path
+    when "@query" then "?#{uri.query}"
     when "@status"
       raise MissingComponent, "@status requires a status code" unless status
       status.to_s

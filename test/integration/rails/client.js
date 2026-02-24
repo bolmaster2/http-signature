@@ -1,35 +1,20 @@
 import crypto from "crypto";
 import { signatureHeaders } from "http-message-sig";
 
+function pass(msg) {
+  console.log(`✅ ${msg}`);
+}
+
+function fail(msg) {
+  console.error(`❌ ${msg}`);
+}
+
 async function main() {
   const base = process.argv[2] || "http://localhost:3000";
   const url = `${base.replace(/\/$/, "")}/protected`;
   const targetUri = new URL(url);
   targetUri.hash = "";
   const targetUriStr = targetUri.toString();
-  const host = targetUri.host;
-
-  // Unsigned request should be rejected
-  let unsignedStatus;
-  try {
-    const res = await fetch(url);
-    unsignedStatus = res.status;
-  } catch (err) {
-    console.error("Unsigned request error:", err);
-    if (err?.response) {
-      console.error("Response body:", await err.response.text?.());
-    }
-    unsignedStatus = err.status ?? err.response?.status;
-  }
-
-  if (unsignedStatus !== 401) {
-    console.error(`Expected 401 for unsigned request, got ${unsignedStatus}`);
-    process.exit(1);
-  }
-
-  // Signed request should succeed
-  const dateHeader = new Date().toUTCString();
-  const headers = {};
 
   const signer = {
     keyid: "key-1",
@@ -41,8 +26,25 @@ async function main() {
     },
   };
 
+  let failed = false;
+
+  // Unsigned request should be rejected
+  try {
+    const res = await fetch(url);
+    if (res.status === 401) {
+      pass("Unsigned request rejected (401)");
+    } else {
+      fail(`Unsigned request: expected 401, got ${res.status}`);
+      failed = true;
+    }
+  } catch (err) {
+    fail(`Unsigned request error: ${err.message}`);
+    failed = true;
+  }
+
+  // Signed request should succeed
   const signedHeaders = await signatureHeaders(
-    { method: "GET", url: targetUriStr, headers },
+    { method: "GET", url: targetUriStr, headers: {} },
     {
       signer,
       components: ["@method", "@authority", "@target-uri"],
@@ -50,22 +52,41 @@ async function main() {
     }
   );
 
-  const fetchHeaders = signedHeaders;
-
-  const successRes = await fetch(url, { headers: fetchHeaders });
-  if (successRes.status !== 200) {
-    console.error(`Expected 200 for signed request, got ${successRes.status}`);
-    console.error("Response body:", await successRes.text?.());
-
-    console.error("Request URL:", url);
-    console.error("Signed headers:", signedHeaders);
-    console.error("Headers:", headers);
-    process.exit(1);
+  const signedRes = await fetch(url, { headers: signedHeaders });
+  if (signedRes.status === 200) {
+    pass("Signed request accepted (200)");
+  } else {
+    fail(
+      `Signed request: expected 200, got ${signedRes.status} - ${await signedRes.text()}`
+    );
+    failed = true;
   }
 
-  console.log(
-    "Unsigned request rejected (401) and signed request succeeded (200)."
+  // Signed request with @query component (RFC 9421 interop)
+  const queryUrl = `${base.replace(/\/$/, "")}/protected?foo=bar`;
+  const queryTargetUri = new URL(queryUrl);
+  queryTargetUri.hash = "";
+
+  const querySignedHeaders = await signatureHeaders(
+    { method: "GET", url: queryTargetUri.toString(), headers: {} },
+    {
+      signer,
+      components: ["@method", "@authority", "@query"],
+      created: Math.floor(Date.now() / 1000),
+    }
   );
+
+  const queryRes = await fetch(queryUrl, { headers: querySignedHeaders });
+  if (queryRes.status === 200) {
+    pass("Signed request with @query component accepted (200)");
+  } else {
+    fail(
+      `Signed request with @query: expected 200, got ${queryRes.status} - ${await queryRes.text()}`
+    );
+    failed = true;
+  }
+
+  if (failed) process.exit(1);
 }
 
 main().catch((err) => {
