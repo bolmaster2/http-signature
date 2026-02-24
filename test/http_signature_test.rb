@@ -780,11 +780,12 @@ class HTTPSignatureTest < Minitest::Test
     # We stub asymmetric_key? to return false temporarily so we can create the attack signature
     original_method = HTTPSignature.method(:asymmetric_key?)
     original_verbose = $VERBOSE
-    $VERBOSE = nil
-    HTTPSignature.define_singleton_method(:asymmetric_key?) { |key| false }
-    $VERBOSE = original_verbose
     begin
-      @sig_headers = HTTPSignature.create(
+      $VERBOSE = nil
+      HTTPSignature.define_singleton_method(:asymmetric_key?) { |key| false }
+      $VERBOSE = original_verbose
+
+      sig_headers = HTTPSignature.create(
         url:,
         method:,
         headers:,
@@ -795,13 +796,12 @@ class HTTPSignatureTest < Minitest::Test
         created: 1_618_884_480
       )
     ensure
-      original_verbose = $VERBOSE
       $VERBOSE = nil
       HTTPSignature.define_singleton_method(:asymmetric_key?, original_method)
       $VERBOSE = original_verbose
     end
 
-    headers = default_headers.merge(@sig_headers)
+    headers = default_headers.merge(sig_headers)
 
     # The server expects RSA verification with the public key
     assert_raises(HTTPSignature::SignatureError) do
