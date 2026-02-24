@@ -497,29 +497,39 @@ module HTTPSignature
     return true if key.is_a?(OpenSSL::PKey::PKey)
     return false unless key.is_a?(String)
 
+    pkey = nil
+
     # Try parsing as an OpenSSL PKey
     # Fast path for PEM encoded keys
     if key.match?(/\A\s*-----BEGIN/)
       begin
-        OpenSSL::PKey.read(key)
-        return true
+        pkey = OpenSSL::PKey.read(key)
       rescue ArgumentError, OpenSSL::PKey::PKeyError
         return false
       end
-    end
-
-    # For binary DER encoded keys, we also attempt to parse
-    # but we skip trying if it doesn't look like ASN.1 DER (starts with 0x30 Sequence)
-    if key.bytes[0] == 0x30
+    # For binary DER, only attempt parse if it looks like ASN.1 SEQUENCE (0x30)
+    # to avoid misclassifying raw HMAC secrets that start with 0x30 as asymmetric
+    elsif key.bytes[0] == 0x30
       begin
-        OpenSSL::PKey.read(key)
-        return true
+        pkey = OpenSSL::PKey.read(key)
       rescue ArgumentError, OpenSSL::PKey::PKeyError
         return false
       end
     end
 
-    false
+    return false unless pkey
+
+    # Only treat as asymmetric if parsed to a known key type with sane structure,
+    # so raw binary that parses as arbitrary DER is not misclassified as a key
+    case pkey
+    when OpenSSL::PKey::RSA
+      pkey.n&.num_bits.to_i >= 512
+    when OpenSSL::PKey::EC
+      pkey.group&.curve_name
+    else
+      # Ed25519 or other PKey subclass
+      true
+    end
   end
 
   # Convert ECDSA DER signature to raw (r || s) format per RFC 9421
