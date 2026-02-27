@@ -10,3 +10,5 @@ This is a Ruby gem implementing the [HTTP Message Signatures RFC 9421 standard](
 ## Linting
 - Run standardrb: `bundle exec standardrb`
 - Fix issues automatically: `bundle exec standardrb --fix`
+
+Always run linters before commit
