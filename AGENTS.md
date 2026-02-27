@@ -18,3 +18,4 @@ Always run linters before commit
 - Update version number in lib/http_signature/version.rb
 - Run `bundle install`
 - Commit with message "Version x.x.x" and push
+- Create release on github with correct version tag
