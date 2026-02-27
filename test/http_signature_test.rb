@@ -871,17 +871,15 @@ class HTTPSignatureTest < Minitest::Test
     end
   end
 
-  def test_verify_rejects_missing_content_digest_if_body_present
+  def test_verify_rejects_missing_content_digest_when_required
     body = '{"hello":"world"}'
     headers = {"content-type" => "application/json"}
 
-    # Suppose an attacker tries to bypass body verification by completely
-    # stripping content-digest from the components list and omitting the header
     sig_headers = HTTPSignature.create(
       url: default_url,
       method: :post,
       headers:,
-      body: "", # Trick create into not requiring content-digest
+      body: "",
       key_id: "test",
       key: shared_secret,
       components: %w[@method content-type]
@@ -889,19 +887,42 @@ class HTTPSignatureTest < Minitest::Test
 
     signed_headers = headers.merge(sig_headers)
 
-    # The server receives a body, but the signature doesn't include content-digest!
-    # It should fail.
     error = assert_raises(HTTPSignature::SignatureError) do
       HTTPSignature.valid?(
         url: default_url,
         method: :post,
         headers: signed_headers,
-        body: body, # The actual body received
-        key: shared_secret
+        body:,
+        key: shared_secret,
+        require_content_digest: true
       )
     end
 
     assert_match(/content-digest/, error.message.downcase)
+  end
+
+  def test_verify_allows_missing_content_digest_by_default
+    headers = {"content-type" => "application/json"}
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers:,
+      body: "",
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method content-type]
+    )
+
+    signed_headers = headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers: signed_headers,
+      body: "",
+      key: shared_secret
+    )
   end
 
   def test_hmac_validation_uses_secure_compare

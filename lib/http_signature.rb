@@ -156,6 +156,8 @@ module HTTPSignature
   # @param algorithm [String, nil] Override algorithm for verification. If nil, uses alg from
   #   signature params or defaults to hmac-sha256 (default: nil)
   # @param status [Integer, nil] HTTP status code, required when verifying responses with @status component
+  # @param require_content_digest [Boolean] When true, raises if a body is present but content-digest
+  #   is not in the signed components. Useful for enforcing body integrity (default: false)
   # @return [Boolean] true when signature verification succeeds
   # @raise [ArgumentError] If max_age is not a non-negative integer
   # @raise [SignatureError] If signature headers are missing, key is missing, or signature is invalid
@@ -171,7 +173,8 @@ module HTTPSignature
     query_string_params: {},
     max_age: nil,
     algorithm: nil,
-    status: nil
+    status: nil,
+    require_content_digest: false
   )
     if max_age && (!max_age.is_a?(Integer) || max_age < 0)
       raise ArgumentError, "max_age must be a non-negative integer"
@@ -198,7 +201,7 @@ module HTTPSignature
     raise SignatureError, "Key is required for verification" unless resolved_key
 
     uri = apply_query_params(URI(url), query_string_params)
-    if !body.to_s.empty? && !parsed_input[:components].include?("content-digest")
+    if require_content_digest && !body.to_s.empty? && !parsed_input[:components].include?("content-digest")
       raise SignatureError, "content-digest component is required when body is present"
     end
 
