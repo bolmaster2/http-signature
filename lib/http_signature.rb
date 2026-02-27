@@ -186,6 +186,7 @@ module HTTPSignature
     raise SignatureError, "Signature headers are required for verification" unless signature_input_header && signature_header
 
     parsed_input = parse_signature_input(signature_input_header, label)
+    validate_components!(parsed_input[:components])
     parsed_signature = parse_signature(signature_header, label)
 
     algorithm_entry = algorithm_entry_for(algorithm || parsed_input[:params][:alg] || DEFAULT_ALGORITHM)
@@ -358,12 +359,12 @@ module HTTPSignature
       path.empty? ? "/" : path
     when "@query" then "?#{uri.query}"
     when "@query-param"
-      name = component.match(/;name="([^"]*)"/)&.[](1)
-      raise MissingComponent, "@query-param requires a name parameter" unless name
-      params = URI.decode_www_form(uri.query.to_s)
-      value = params.assoc(name)
-      raise MissingComponent, "Query parameter not found: #{name}" unless value
-      value[1]
+      encoded_name = component.match(/;name="([^"]*)"/)&.[](1)
+      raise MissingComponent, "@query-param requires a name parameter" unless encoded_name
+      name = URI.decode_www_form_component(encoded_name)
+      pair = uri.query.to_s.split("&").map { |p| p.split("=", 2) }.find { |n, _| URI.decode_www_form_component(n) == name }
+      raise MissingComponent, "Query parameter not found: #{encoded_name}" unless pair
+      pair[1].to_s.tr("+", "%20")
     when "@status"
       raise MissingComponent, "@status requires a status code" unless status
       status.to_s
