@@ -77,6 +77,38 @@ Any lowercase header name (e.g., `content-type`, `date`) can also be used as a c
 
 Default components are: `@method @target-uri content-digest content-type`
 
+#### Signing responses bound to a request
+
+When signing an HTTP response, you can bind it to the original request using the `;req` component parameter ([RFC 9421 Section 2.4](https://www.rfc-editor.org/rfc/rfc9421#section-2.4)). This cryptographically ties the response signature to values from the request, proving the response was generated for that specific request.
+
+Pass the original request headers via `attached_request`:
+
+```ruby
+sig_headers = HTTPSignature.create(
+  url: "https://example.com/api/data",
+  method: "POST",
+  headers: response_headers,
+  components: ["@status", "content-type", "content-type;req", "@method;req"],
+  status: 200,
+  key: "secret",
+  key_id: "key-1",
+  attached_request: { headers: { "content-type" => "application/json" } }
+)
+```
+
+Components with `;req` are resolved from the attached request's headers instead of the response headers. For verification, pass the same `attached_request`:
+
+```ruby
+HTTPSignature.valid?(
+  url: "https://example.com/api/data",
+  method: "POST",
+  headers: response_headers,
+  key: "secret",
+  status: 200,
+  attached_request: { headers: original_request_headers }
+)
+```
+
 ### Validate signature
 
 Call `valid?` with the incoming request headers (including `Signature-Input` and `Signature`)
