@@ -206,7 +206,10 @@ module HTTPSignature
     end
 
     if parsed_input[:components].include?("content-digest")
-      normalized_headers = ensure_content_digest(normalized_headers, body)
+      unless normalized_headers["content-digest"]
+        raise MissingComponent, "Missing required component: content-digest"
+      end
+      verify_content_digest!(normalized_headers["content-digest"], body) unless body.to_s.empty?
     end
 
     canonical_components = build_components(

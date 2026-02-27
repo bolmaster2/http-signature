@@ -834,7 +834,9 @@ class HTTPSignatureTest < Minitest::Test
 
   def test_rejects_mismatched_content_digest
     body = '{"hello":"world"}'
-    headers = {"content-type" => "application/json"}
+    digest = Digest::SHA256.digest(body)
+    content_digest = "sha-256=:#{Base64.strict_encode64(digest)}:"
+    headers = {"content-type" => "application/json", "content-digest" => content_digest}
 
     sig_headers = HTTPSignature.create(
       url: default_url,
@@ -848,17 +850,14 @@ class HTTPSignatureTest < Minitest::Test
 
     signed_headers = headers.merge(sig_headers)
 
-    # Validation succeeds with the correct body
     assert HTTPSignature.valid?(
       url: default_url,
       method: :post,
       headers: signed_headers,
-      body: body,
+      body:,
       key: shared_secret
     )
 
-    # If the attacker changes the body but keeps the valid content-digest header and signature,
-    # validation SHOULD fail!
     malicious_body = '{"hello":"attacker"}'
     assert_raises(HTTPSignature::SignatureError) do
       HTTPSignature.valid?(
@@ -869,6 +868,125 @@ class HTTPSignatureTest < Minitest::Test
         key: shared_secret
       )
     end
+  end
+
+  def test_verify_raises_when_content_digest_header_missing_but_component_signed
+    body = '{"hello":"world"}'
+    headers = {"content-type" => "application/json"}
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers:,
+      body:,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method content-digest]
+    )
+
+    signed_headers = headers.merge(sig_headers)
+    signed_headers.delete("Content-Digest")
+    signed_headers.delete("content-digest")
+
+    error = assert_raises(HTTPSignature::MissingComponent) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers: signed_headers,
+        body:,
+        key: shared_secret
+      )
+    end
+
+    assert_equal "Missing required component: content-digest", error.message
+  end
+
+  def test_verify_fails_when_content_digest_header_stripped_and_body_tampered
+    body = '{"hello":"world"}'
+    headers = {"content-type" => "application/json"}
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers:,
+      body:,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method content-digest]
+    )
+
+    signed_headers = headers.merge(sig_headers)
+    signed_headers.delete("Content-Digest")
+    signed_headers.delete("content-digest")
+
+    # Even though the header is stripped, the regenerated digest won't match
+    # what was signed because the body has changed.
+    assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers: signed_headers,
+        body: '{"hello":"attacker"}',
+        key: shared_secret
+      )
+    end
+  end
+
+  def test_verify_rejects_unsupported_content_digest_algorithm
+    body = '{"hello":"world"}'
+    headers = {"content-type" => "application/json"}
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers:,
+      body:,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method content-digest]
+    )
+
+    signed_headers = headers.merge(sig_headers)
+    signed_headers["content-digest"] = "md5=:rL0Y20zC+Fzt72VPzMSk2A==:"
+
+    error = assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers: signed_headers,
+        body:,
+        key: shared_secret
+      )
+    end
+
+    assert_equal "Content-Digest header contains no supported algorithm", error.message
+  end
+
+  def test_verify_content_digest_with_sha512
+    body = '{"hello":"world"}'
+    headers = {"content-type" => "application/json"}
+    digest = Digest::SHA512.digest(body)
+    content_digest = "sha-512=:#{Base64.strict_encode64(digest)}:"
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: headers.merge("content-digest" => content_digest),
+      body:,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method content-digest]
+    )
+
+    signed_headers = headers.merge("content-digest" => content_digest).merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers: signed_headers,
+      body:,
+      key: shared_secret
+    )
   end
 
   def test_verify_rejects_missing_content_digest_when_required

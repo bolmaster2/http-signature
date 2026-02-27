@@ -48,11 +48,13 @@ describe HTTPSignature::Rack do
     end
     url = "http://example.com/submit"
     body = '{"hello":"world"}'
+    digest = Digest::SHA256.digest(body)
+    content_digest = "sha-256=:#{Base64.strict_encode64(digest)}:"
 
     sig_headers = HTTPSignature.create(
       url: url,
       method: :post,
-      headers: {"content-type" => "application/json"},
+      headers: {"content-type" => "application/json", "content-digest" => content_digest},
       body: body,
       key_id: "key-1",
       key: hmac_key,
@@ -68,6 +70,7 @@ describe HTTPSignature::Rack do
       "/submit",
       "HTTP_HOST" => "example.com",
       "CONTENT_TYPE" => "application/json",
+      "HTTP_CONTENT_DIGEST" => content_digest,
       "HTTP_SIGNATURE_INPUT" => sig_headers["Signature-Input"],
       "HTTP_SIGNATURE" => sig_headers["Signature"],
       :input => body

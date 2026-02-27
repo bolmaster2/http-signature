@@ -119,6 +119,27 @@ async function testPostWithMismatchedContentDigest() {
   return assertStatus(res, 401, "POST with mismatched content-digest rejected (401)");
 }
 
+async function testMissingContentDigestHeaderRejected() {
+  const url = urlFor("/webhook");
+  const body = JSON.stringify({ event: "user.created", id: 42 });
+  const digestBytes = crypto.createHash("sha256").update(body).digest();
+  const contentDigest = `sha-256=:${digestBytes.toString("base64")}:`;
+
+  // Sign with content-digest in the components and headers
+  const sigHeaders = await signatureHeaders(
+    { method: "POST", url, headers: { "content-type": "application/json", "content-digest": contentDigest } },
+    { signer, components: ["@method", "@authority", "content-type", "content-digest"], created: Math.floor(Date.now() / 1000) }
+  );
+
+  // Send the request WITHOUT the Content-Digest header
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { ...sigHeaders, "Content-Type": "application/json" },
+    body,
+  });
+  return assertStatus(res, 401, "POST with content-digest signed but header missing rejected (401)");
+}
+
 async function testFullCoverageMultiComponent() {
   const url = cleanUrl(urlFor("/protected?a=1&b=2"));
   const headers = await signatureHeaders(
@@ -138,6 +159,7 @@ async function main() {
     testDateHeaderComponent(),
     testPostWithBodyAndContentDigest(),
     testPostWithMismatchedContentDigest(),
+    testMissingContentDigestHeaderRejected(),
     testFullCoverageMultiComponent(),
   ]);
 
