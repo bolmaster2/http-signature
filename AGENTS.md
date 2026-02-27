@@ -12,3 +12,9 @@ This is a Ruby gem implementing the [HTTP Message Signatures RFC 9421 standard](
 - Fix issues automatically: `bundle exec standardrb --fix`
 
 Always run linters before commit
+
+## Bump gem version
+
+- Update version number in lib/http_signature/version.rb
+- Run `bundle install`
+- Commit with message "Version x.x.x" and push
