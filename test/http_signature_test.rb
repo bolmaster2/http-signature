@@ -962,6 +962,38 @@ class HTTPSignatureTest < Minitest::Test
     assert_equal "Content-Digest header contains no supported algorithm", error.message
   end
 
+  def test_verify_rejects_malformed_content_digest_encoding
+    body = '{"hello":"world"}'
+    digest = Digest::SHA256.digest(body)
+    content_digest = "sha-256=:#{Base64.strict_encode64(digest)}:"
+    headers = {"content-type" => "application/json", "content-digest" => content_digest}
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers:,
+      body:,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method content-digest]
+    )
+
+    signed_headers = headers.merge(sig_headers)
+    signed_headers["content-digest"] = "sha-256=:notvalid===base64:"
+
+    error = assert_raises(HTTPSignature::SignatureError) do
+      HTTPSignature.valid?(
+        url: default_url,
+        method: :post,
+        headers: signed_headers,
+        body:,
+        key: shared_secret
+      )
+    end
+
+    assert_equal "Invalid Content-Digest encoding for sha-256", error.message
+  end
+
   def test_verify_content_digest_with_sha512
     body = '{"hello":"world"}'
     headers = {"content-type" => "application/json"}

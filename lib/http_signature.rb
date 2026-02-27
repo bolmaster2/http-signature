@@ -300,7 +300,12 @@ module HTTPSignature
       end
       next unless digest
 
-      unless digest == Base64.strict_decode64(encoded_digest)
+      begin
+        decoded = Base64.strict_decode64(encoded_digest)
+      rescue ArgumentError
+        raise SignatureError, "Invalid Content-Digest encoding for #{alg}"
+      end
+      unless digest == decoded
         raise SignatureError, "Content-Digest mismatch: body does not match #{alg} digest"
       end
       verified = true
