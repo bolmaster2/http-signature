@@ -19,7 +19,7 @@ module HTTPSignature
   class UnsupportedAlgorithm < SignatureError; end
   class ExpiredError < SignatureError; end
 
-  SUPPORTED_DERIVED_COMPONENTS = %w[@method @authority @target-uri @scheme @path @query @status].freeze
+  SUPPORTED_DERIVED_COMPONENTS = %w[@method @authority @target-uri @request-target @scheme @path @query @query-param @status].freeze
 
   Algorithm = Struct.new(:type, :digest_name, :curve)
   ALGORITHMS = {
@@ -254,9 +254,20 @@ module HTTPSignature
   end
 
   def self.validate_components!(components)
+    if components.include?("@signature-params")
+      raise UnsupportedComponent, "@signature-params cannot be included as a component"
+    end
+
+    seen = {}
     components.each do |component|
+      if seen[component]
+        raise UnsupportedComponent, "Duplicate component: #{component}"
+      end
+      seen[component] = true
+
       next unless component.start_with?("@")
-      next if SUPPORTED_DERIVED_COMPONENTS.include?(component)
+      base = component.split(";").first
+      next if SUPPORTED_DERIVED_COMPONENTS.include?(base)
 
       raise UnsupportedComponent, "Unsupported component: #{component}"
     end
@@ -328,7 +339,9 @@ module HTTPSignature
   end
 
   def self.derived_component(component, uri, method, status: nil)
-    case component
+    base = component.split(";").first
+
+    case base
     when "@method" then method.to_s.upcase
     when "@authority"
       port = uri.port
@@ -336,11 +349,21 @@ module HTTPSignature
       (uri.port && port != default_port) ? "#{uri.host}:#{uri.port}" : uri.host
     when "@target-uri"
       uri.dup.tap { |u| u.fragment = nil }.to_s
+    when "@request-target"
+      path = uri.path.empty? ? "/" : uri.path
+      uri.query ? "#{path}?#{uri.query}" : path
     when "@scheme" then uri.scheme
     when "@path"
       path = uri.path
       path.empty? ? "/" : path
     when "@query" then "?#{uri.query}"
+    when "@query-param"
+      name = component.match(/;name="([^"]*)"/)&.[](1)
+      raise MissingComponent, "@query-param requires a name parameter" unless name
+      params = URI.decode_www_form(uri.query.to_s)
+      value = params.assoc(name)
+      raise MissingComponent, "Query parameter not found: #{name}" unless value
+      value[1]
     when "@status"
       raise MissingComponent, "@status requires a status code" unless status
       status.to_s
@@ -351,6 +374,13 @@ module HTTPSignature
 
   def self.canonical_header_value(value)
     value.is_a?(Array) ? value.join(", ") : value.to_s
+  end
+
+  def self.serialize_component_id(component)
+    base, params = component.split(";", 2)
+    serialized = %("#{escape_structured_string(base)}")
+    serialized << ";#{params}" if params
+    serialized
   end
 
   def self.escape_structured_string(value)
@@ -374,7 +404,7 @@ module HTTPSignature
     nonce:,
     canonical_components:
   )
-    component_tokens = components.map { |c| %("#{escape_structured_string(c)}") }.join(" ")
+    component_tokens = components.map { |c| serialize_component_id(c) }.join(" ")
     params = ["created=#{created}"]
     params << "expires=#{expires}" unless expires.nil?
     params << %(keyid="#{escape_structured_string(key_id)}")
@@ -385,7 +415,7 @@ module HTTPSignature
     signature_input_header = "#{label}=#{signature_params}"
 
     base_lines = canonical_components.map do |name, value|
-      %("#{name}": #{value})
+      "#{serialize_component_id(name)}: #{value}"
     end
     base_lines << %("@signature-params": #{signature_params})
 
@@ -473,8 +503,13 @@ module HTTPSignature
     raise SignatureError, "Signature-Input missing" unless entry
 
     components_match = entry.match(/\((.*?)\)/)
-    components =
-      components_match ? components_match[1].scan(/"([^"]+)"/).flatten : []
+    components = if components_match
+      components_match[1].scan(/"([^"]+)"((?:;[a-z]+=(?:"[^"]*"|\S+))*)/).map do |base, params|
+        params.empty? ? base : "#{base}#{params}"
+      end
+    else
+      []
+    end
 
     params = entry.split(");").last&.split(";")&.map do |p|
       key, value = p.split("=", 2)

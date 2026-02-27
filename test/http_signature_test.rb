@@ -1344,4 +1344,147 @@ class HTTPSignatureTest < Minitest::Test
 
     assert_equal "Unsupported component: @unsupported-component", error.message
   end
+
+  def test_rejects_duplicate_components
+    error = assert_raises(HTTPSignature::UnsupportedComponent) do
+      HTTPSignature.create(
+        url: default_url,
+        method: :get,
+        headers: default_headers,
+        key: shared_secret,
+        key_id: "test",
+        components: %w[@method @authority @method]
+      )
+    end
+
+    assert_equal "Duplicate component: @method", error.message
+  end
+
+  def test_rejects_signature_params_as_component
+    error = assert_raises(HTTPSignature::UnsupportedComponent) do
+      HTTPSignature.create(
+        url: default_url,
+        method: :get,
+        headers: default_headers,
+        key: shared_secret,
+        key_id: "test",
+        components: %w[@method @signature-params]
+      )
+    end
+
+    assert_equal "@signature-params cannot be included as a component", error.message
+  end
+
+  def test_request_target_component
+    url = "https://example.com/path?param=value"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method @request-target],
+      created: 1
+    )
+
+    assert_includes sig_headers["Signature-Input"], '"@request-target"'
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  def test_request_target_component_without_query
+    url = "https://example.com/path"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method @request-target],
+      created: 1
+    )
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  def test_query_param_component
+    url = "https://example.com/path?foo=bar&baz=qux"
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers: default_headers,
+      key_id: "test",
+      key: shared_secret,
+      components: ['@method', '@query-param;name="foo"'],
+      created: 1
+    )
+
+    assert_includes sig_headers["Signature-Input"], '"@query-param";name="foo"'
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  def test_query_param_missing_raises
+    url = "https://example.com/path?foo=bar"
+
+    assert_raises(HTTPSignature::MissingComponent) do
+      HTTPSignature.create(
+        url:,
+        method: :get,
+        headers: default_headers,
+        key_id: "test",
+        key: shared_secret,
+        components: ['@method', '@query-param;name="missing"'],
+        created: 1
+      )
+    end
+  end
+
+  def test_empty_header_value
+    url = "https://example.com/foo"
+    headers = default_headers.merge("x-empty" => "")
+
+    sig_headers = HTTPSignature.create(
+      url:,
+      method: :get,
+      headers:,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method x-empty],
+      created: 1
+    )
+
+    signed_headers = headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url:,
+      method: :get,
+      headers: signed_headers,
+      key: shared_secret
+    )
+  end
 end
