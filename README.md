@@ -53,11 +53,27 @@ HTTPSignature.create(
   created: Time.now.to_i, # Default: Time.now.to_i
   expires: Time.now.to_i + 600, # Default: nil
   nonce: "1", # Default: nil
-  label: "sig1", # Default: "sig1",
-  query_string_params: {pet2: "cat"} # Default: {}, you can pass query string params both here and in the `url` param
-  algorithm: "hmac-sha512" # Default: "hmac-sha256"
+  label: "sig1", # Default: "sig1"
+  query_string_params: {pet2: "cat"}, # Default: {}, you can pass query string params both here and in the `url` param
+  algorithm: "hmac-sha512", # Default: "hmac-sha256"
+  include_alg: true, # Default: true, set to false to omit the alg parameter from Signature-Input
+  status: 200, # Default: nil, required when signing responses with @status component
+  attached_request: { headers: req_headers } # Default: nil, required when using ;req component parameter
 )
 ```
+
+#### Supported algorithms
+
+| Algorithm | Key type |
+|-----------|----------|
+| `hmac-sha256` (default) | Shared secret string |
+| `hmac-sha512` | Shared secret string |
+| `rsa-pss-sha256` | RSA key (`OpenSSL::PKey::RSA`) |
+| `rsa-pss-sha512` | RSA key |
+| `rsa-v1_5-sha256` | RSA key |
+| `ecdsa-p256-sha256` | EC key (P-256 curve) |
+| `ecdsa-p384-sha384` | EC key (P-384 curve) |
+| `ed25519` | Ed25519 key |
 
 #### Supported components
 
@@ -71,11 +87,31 @@ Derived components (prefixed with `@`) per [RFC 9421 Section 2.2](https://www.rf
 | `@scheme` | URI scheme (`http` or `https`) |
 | `@path` | Request path (`/foo`) |
 | `@query` | Query string (including `?`; `?bar=1`) |
+| `@query-param` | Individual query parameter (requires `;name`, e.g., `@query-param;name="pet"`) |
+| `@request-target` | Request target (path + query) |
 | `@status` | Response status code (responses only) |
 
 Any lowercase header name (e.g., `content-type`, `date`) can also be used as a component.
 
 Default components are: `@method @target-uri content-digest content-type`
+
+#### Component parameters
+
+Components can have parameters per [RFC 9421 Section 2.1](https://www.rfc-editor.org/rfc/rfc9421#section-2.1):
+
+| Parameter | Description |
+|-----------|-------------|
+| `;sf` | Serialize the value as a structured field ([RFC 8941](https://www.rfc-editor.org/rfc/rfc8941)) |
+| `;key="member"` | Extract a single dictionary member from a structured field |
+| `;bs` | Use byte sequence serialization for the value |
+| `;req` | Resolve the component from the attached request (see below) |
+| `;name="param"` | Select a named query parameter (only with `@query-param`) |
+
+Example using `;key` to sign only the `sha-256` member of `content-digest`:
+
+```ruby
+components: ["@method", "@target-uri", 'content-digest;key="sha-256"']
+```
 
 #### Signing responses bound to a request
 
@@ -125,6 +161,50 @@ HTTPSignature.valid?(
 # Raises `SignatureError` for invalid signatures
 ```
 
+#### All verification options
+
+```ruby
+HTTPSignature.valid?(
+  url: "https://example.com/foo",
+  method: :get,
+  headers: headers,
+  body: request_body, # Default: ""
+  key: "secret", # Default: nil, uses key_resolver or configured keys if nil
+  key_resolver: ->(key_id) { find_key(key_id) }, # Default: nil, called with the key_id from Signature-Input
+  label: "sig1", # Default: "sig1"
+  query_string_params: {}, # Default: {}
+  max_age: 300, # Default: nil, reject signatures older than N seconds
+  algorithm: "hmac-sha256", # Default: nil, uses alg from Signature-Input or hmac-sha256
+  status: 200, # Default: nil, required when verifying responses with @status
+  require_content_digest: true, # Default: false, raise if body present but content-digest not signed
+  attached_request: { headers: req_headers } # Default: nil, required when ;req components were signed
+)
+```
+
+#### Dynamic key resolution
+
+Use `key_resolver` when you need to look up keys dynamically based on the `key_id` from the incoming signature:
+
+```ruby
+HTTPSignature.valid?(
+  url: "https://example.com/foo",
+  method: :get,
+  headers: headers,
+  key_resolver: ->(key_id) { KeyStore.find(key_id) }
+)
+```
+
+Alternatively, configure keys globally:
+
+```ruby
+HTTPSignature.configure do |config|
+  config.keys = [
+    {id: "key-1", value: "secret1"},
+    {id: "key-2", value: "secret2"}
+  ]
+end
+```
+
 #### Limiting signature age
 
 Use `max_age` to reject signatures older than a specified number of seconds, regardless of the signature's `expires` parameter. This helps protect against replay attacks.
@@ -139,6 +219,37 @@ HTTPSignature.valid?(
 )
 
 # Raises `ExpiredError` if the signature was created more than 300 seconds ago
+```
+
+### Content-Digest
+
+When `content-digest` is included in the signed components and a body is present, the gem handles [RFC 9530](https://www.rfc-editor.org/rfc/rfc9530) Content-Digest automatically:
+
+- **Signing** (`create`): If the request has a body and no `Content-Digest` header, the gem generates one using SHA-256 and adds it to the headers. If the header already exists, it verifies it matches the body.
+- **Verification** (`valid?`): Verifies that the `Content-Digest` header matches the body. Raises `MissingComponent` if the header is absent, and `SignatureError` on mismatch.
+
+To enforce that every request with a body must have `content-digest` in its signed components, use `require_content_digest: true` during verification.
+
+### Error handling
+
+All errors inherit from `HTTPSignature::SignatureError`:
+
+| Error | Raised when |
+|-------|-------------|
+| `SignatureError` | Signature is invalid, headers are missing, or Content-Digest mismatches |
+| `MissingComponent` | A signed component is not present in the request |
+| `UnsupportedComponent` | An unknown derived component is used (e.g., `@foo`) |
+| `UnsupportedAlgorithm` | The signing algorithm is not supported |
+| `ExpiredError` | The signature has expired (via `expires` or `max_age`) |
+
+```ruby
+begin
+  HTTPSignature.valid?(url:, method:, headers:, key:)
+rescue HTTPSignature::ExpiredError
+  # Signature too old
+rescue HTTPSignature::SignatureError => e
+  # Any other signature problem
+end
 ```
 
 ## Outgoing request examples
