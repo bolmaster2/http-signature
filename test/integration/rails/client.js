@@ -140,6 +140,46 @@ async function testMissingContentDigestHeaderRejected() {
   return assertStatus(res, 401, "POST with content-digest signed but header missing rejected (401)");
 }
 
+async function testContentDigestKeyParameter() {
+  const url = urlFor("/webhook");
+  const body = JSON.stringify({ event: "user.created", id: 42 });
+  const digestBytes = crypto.createHash("sha256").update(body).digest();
+  const contentDigest = `sha-256=:${digestBytes.toString("base64")}:`;
+
+  // The ;key="sha-256" parameter means only the sha-256 member value should be
+  // used in the signature base, not the full Content-Digest header.
+  // RFC 9421 Section 2.1.2 - the value is just the dictionary member: `:${base64}:`
+  const memberValue = `:${digestBytes.toString("base64")}:`;
+
+  const created = Math.floor(Date.now() / 1000);
+  const sigInputParams = `("@method" "@authority" "content-type" "content-digest";key="sha-256");created=${created};keyid="key-1";alg="hmac-sha256"`;
+
+  const baseLines = [
+    `"@method": POST`,
+    `"@authority": ${new URL(url).host}`,
+    `"content-type": application/json`,
+    `"content-digest";key="sha-256": ${memberValue}`,
+    `"@signature-params": ${sigInputParams}`,
+  ];
+  const baseString = baseLines.join("\n");
+
+  const hmac = crypto.createHmac("sha256", "MySecureKey");
+  hmac.update(baseString);
+  const sig = hmac.digest().toString("base64");
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Digest": contentDigest,
+      "Signature-Input": `sig1=${sigInputParams}`,
+      Signature: `sig1=:${sig}:`,
+    },
+    body,
+  });
+  return assertStatus(res, 200, "content-digest;key=\"sha-256\" accepted (200)");
+}
+
 async function testFullCoverageMultiComponent() {
   const url = cleanUrl(urlFor("/protected?a=1&b=2"));
   const headers = await signatureHeaders(
@@ -160,6 +200,7 @@ async function main() {
     testPostWithBodyAndContentDigest(),
     testPostWithMismatchedContentDigest(),
     testMissingContentDigestHeaderRejected(),
+    testContentDigestKeyParameter(),
     testFullCoverageMultiComponent(),
   ]);
 

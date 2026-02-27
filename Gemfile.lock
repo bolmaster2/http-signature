@@ -3,6 +3,7 @@ PATH
   specs:
     http_signature (1.2.0)
       base64
+      starry (~> 0.2)
 
 GEM
   remote: https://rubygems.org/
@@ -129,6 +130,8 @@ GEM
     standard-performance (1.9.0)
       lint_roller (~> 1.1)
       rubocop-performance (~> 1.26.0)
+    starry (0.2.0)
+      base64
     tzinfo (2.0.6)
       concurrent-ruby (~> 1.0)
     unicode-display_width (3.2.0)

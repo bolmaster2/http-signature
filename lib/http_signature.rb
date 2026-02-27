@@ -4,6 +4,7 @@ require "openssl"
 require "base64"
 require "uri"
 require "digest"
+require "starry"
 
 # Implements HTTP Message Signatures per RFC 9421.
 module HTTPSignature
@@ -86,7 +87,8 @@ module HTTPSignature
     label: DEFAULT_LABEL,
     query_string_params: {},
     include_alg: true,
-    status: nil
+    status: nil,
+    attached_request: nil
   )
     unless created.is_a?(Integer)
       raise ArgumentError, "created must be a Unix timestamp integer"
@@ -113,12 +115,15 @@ module HTTPSignature
         normalized_headers
       end
 
+    normalized_attached = attached_request ? {headers: normalize_headers(attached_request[:headers])} : nil
+
     canonical_components = build_components(
       uri:,
       method:,
       headers: normalized_headers,
       components:,
-      status:
+      status:,
+      attached_request: normalized_attached
     )
 
     signature_input_header, base_string = build_signature_input(
@@ -174,7 +179,8 @@ module HTTPSignature
     max_age: nil,
     algorithm: nil,
     status: nil,
-    require_content_digest: false
+    require_content_digest: false,
+    attached_request: nil
   )
     if max_age && (!max_age.is_a?(Integer) || max_age < 0)
       raise ArgumentError, "max_age must be a non-negative integer"
@@ -213,12 +219,15 @@ module HTTPSignature
       verify_content_digest!(normalized_headers["content-digest"], body) unless body.to_s.empty?
     end
 
+    normalized_attached = attached_request ? {headers: normalize_headers(attached_request[:headers])} : nil
+
     canonical_components = build_components(
       uri:,
       method:,
       headers: normalized_headers,
       components: parsed_input[:components],
-      status:
+      status:,
+      attached_request: normalized_attached
     )
 
     _, base_string = build_signature_input(
@@ -254,6 +263,8 @@ module HTTPSignature
     new_uri
   end
 
+  KNOWN_PARAMETERS = %w[sf key bs req tr name].freeze
+
   def self.validate_components!(components)
     if components.include?("@signature-params")
       raise UnsupportedComponent, "@signature-params cannot be included as a component"
@@ -266,11 +277,33 @@ module HTTPSignature
       end
       seen[component] = true
 
+      params = parse_component_params(component)
+      has_sf = params["sf"] || params.key?("key")
+      has_bs = params["bs"]
+
+      if has_sf && has_bs
+        raise UnsupportedComponent, "Cannot combine ;sf/;key with ;bs: #{component}"
+      end
+
+      if params.key?("name") && !component.start_with?("@query-param")
+        raise UnsupportedComponent, ";name parameter only valid with @query-param: #{component}"
+      end
+
       next unless component.start_with?("@")
       base = component.split(";").first
       next if SUPPORTED_DERIVED_COMPONENTS.include?(base)
 
       raise UnsupportedComponent, "Unsupported component: #{component}"
+    end
+  end
+
+  def self.parse_component_params(component)
+    _, raw_params = component.split(";", 2)
+    return {} unless raw_params
+
+    raw_params.split(";").each_with_object({}) do |param, hash|
+      key, value = param.split("=", 2)
+      hash[key] = value ? value.delete_prefix('"').delete_suffix('"') : true
     end
   end
 
@@ -326,16 +359,70 @@ module HTTPSignature
     raise SignatureError, "Content-Digest header contains no supported algorithm" unless verified
   end
 
-  def self.build_components(uri:, method:, headers:, components:, status: nil)
+  def self.build_components(uri:, method:, headers:, components:, status: nil, attached_request: nil)
     components.map do |component|
-      if component.start_with?("@")
-        [component, derived_component(component, uri, method, status:)]
-      else
-        value = headers[component]
-        raise MissingComponent, "Missing required component: #{component}" unless value
+      params = parse_component_params(component)
+      base = component.split(";").first
 
-        [component, canonical_header_value(value)]
+      if params["req"]
+        raise MissingComponent, ";req requires an attached request" unless attached_request
+        req_component = component.sub(/;req(?:=\S+)?/, "")
+        value = resolve_component_value(req_component, uri, method, attached_request[:headers], status:)
+      elsif base.start_with?("@")
+        value = derived_component(component, uri, method, status:)
+      else
+        raw = headers[base]
+        raise MissingComponent, "Missing required component: #{base}" unless raw
+        value = canonical_header_value(raw)
       end
+
+      value = apply_structured_params(value, params)
+
+      [component, value]
+    end
+  end
+
+  def self.resolve_component_value(component, uri, method, headers, status: nil)
+    base = component.split(";").first
+    if base.start_with?("@")
+      derived_component(component, uri, method, status:)
+    else
+      raw = headers[base]
+      raise MissingComponent, "Missing required component: #{base}" unless raw
+      canonical_header_value(raw)
+    end
+  end
+
+  def self.apply_structured_params(value, params)
+    has_sf = params["sf"] || params.key?("key")
+    has_bs = params["bs"]
+
+    if has_sf
+      key = params["key"]
+      if key
+        dict = Starry.parse_dictionary(value)
+        obj = dict[key]
+        raise MissingComponent, "Dictionary member not found: #{key}" unless obj
+        Starry.serialize(obj.is_a?(Starry::InnerList) ? [obj] : obj)
+      else
+        Starry.serialize(parse_structured_field(value))
+      end
+    elsif has_bs
+      Starry.serialize(value.encode(Encoding::ASCII_8BIT))
+    else
+      value
+    end
+  rescue Starry::ParseError
+    raise SignatureError, "Failed to parse structured field value"
+  end
+
+  def self.parse_structured_field(value)
+    Starry.parse_dictionary(value)
+  rescue Starry::ParseError
+    begin
+      Starry.parse_list(value)
+    rescue Starry::ParseError
+      Starry.parse_item(value)
     end
   end
 
@@ -505,7 +592,7 @@ module HTTPSignature
 
     components_match = entry.match(/\((.*?)\)/)
     components = if components_match
-      components_match[1].scan(/"([^"]+)"((?:;[a-z]+=(?:"[^"]*"|\S+))*)/).map do |base, params|
+      components_match[1].scan(/"([^"]+)"((?:;[a-z]+(?:=(?:"[^"]*"|\S+))?)*)/).map do |base, params|
         params.empty? ? base : "#{base}#{params}"
       end
     else
