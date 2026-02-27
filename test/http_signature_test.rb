@@ -1432,7 +1432,7 @@ class HTTPSignatureTest < Minitest::Test
       headers: default_headers,
       key_id: "test",
       key: shared_secret,
-      components: ['@method', '@query-param;name="foo"'],
+      components: ["@method", '@query-param;name="foo"'],
       created: 1
     )
 
@@ -1458,7 +1458,7 @@ class HTTPSignatureTest < Minitest::Test
         headers: default_headers,
         key_id: "test",
         key: shared_secret,
-        components: ['@method', '@query-param;name="missing"'],
+        components: ["@method", '@query-param;name="missing"'],
         created: 1
       )
     end
