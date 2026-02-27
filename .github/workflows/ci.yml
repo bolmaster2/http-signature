@@ -9,13 +9,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby-version: ['3.4', '4.0']
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.4'
+          ruby-version: ${{ matrix.ruby-version }}
           bundler-cache: true
 
       - name: Run tests with coverage
@@ -26,7 +30,7 @@ jobs:
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-html
+          name: coverage-html-${{ matrix.ruby-version }}
           path: coverage/
           if-no-files-found: warn
 
