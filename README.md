@@ -1,15 +1,10 @@
 # HTTP Signature
 
-Create and validate HTTP Message Signatures per [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) using the `Signature-Input` and `Signature` headers.
+A Ruby gem for signing and verifying HTTP requests. You pick which parts of the request to sign (method, URL, headers, body), and the receiver can verify nothing was tampered with — and that it came from someone who holds the key.
 
-TL;DR: You specify what should be signed in `Signature-Input` with [components](https://www.rfc-editor.org/rfc/rfc9421#name-derived-components) and lowercase headers. And then the signature is in the `Signature` header
+Built on [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) (HTTP Message Signatures). Works with HMAC, RSA, ECDSA, and Ed25519.
 
-Example:
-
-```
-Signature-Input: sig1=("@method" "@target-uri" "date");created=1767816111;keyid="Test";alg="hmac-sha256"
-Signature: sig1=:7a1ajkE2rOu+gnW3WLZ4ZEcgCm3TfExmypM/giIgdM0=:
-```
+When using a standard to sign your HTTP requests you don't need to write a custom implementation every time. There's [loads of libraries](https://httpsig.org/) across languages that's implementing it!
 
 ## Installation
 
@@ -24,19 +19,18 @@ bundle add http_signature
 `HTTPSignature.create` returns both `Signature-Input` and `Signature` headers that you can include in your request.
 
 ```ruby
-headers = { "date" => "Tue, 20 Apr 2021 02:07:55 GMT" }
-
-sig_headers = HTTPSignature.create(
+HTTPSignature.create(
   url: "https://example.com/foo?pet=dog",
   method: :get,
   key_id: "Test",
   key: "secret",
-  headers: headers,
+  headers: { "date" => "Tue, 20 Apr 2021 02:07:55 GMT" },
   components: %w[@method @target-uri date]
 )
-
-request["Signature-Input"] = sig_headers["Signature-Input"]
-request["Signature"] = sig_headers["Signature"]
+# => {
+#   "Signature-Input" => "sig1=(\"@method\" \"@target-uri\" \"date\");created=1772444045;keyid=\"Test\";alg=\"hmac-sha256\"",
+#   "Signature" => "sig1=:zpXxiPxS8IFPMYAqRCsgj+eG8wHeft6VGS0YiZKzmQ4=:"
+# }
 ```
 #### All options
 
