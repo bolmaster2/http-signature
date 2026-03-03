@@ -17,15 +17,19 @@ class RailsDockerIntegrationTest < Minitest::Test
     system!("docker build -t #{IMAGE} -f test/integration/rails/Dockerfile .")
     system!("docker run -d --rm --name #{CONTAINER} -p #{PORT}:3000 #{IMAGE}")
     wait_for_server
-    system!("npm install --prefix test/integration/rails")
+    system!("npm install --prefix test/integration/rails/node")
   end
 
   def teardown
     system("docker stop #{CONTAINER} >/dev/null 2>&1")
   end
 
-  def test_signed_and_unsigned_requests
-    system!("node test/integration/rails/client.js http://localhost:#{PORT}")
+  def test_node_signed_and_unsigned_requests
+    system!("node test/integration/rails/node/client.js http://localhost:#{PORT}")
+  end
+
+  def test_ruby_signed_and_unsigned_requests
+    system!("bundle exec ruby test/integration/rails/ruby/client.rb http://localhost:#{PORT}")
   end
 
   private

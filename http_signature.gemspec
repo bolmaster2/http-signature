@@ -28,6 +28,9 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "standard"
   spec.add_development_dependency "simplecov"
   spec.add_development_dependency "actionpack", ">= 6.1"
+  spec.add_development_dependency "httparty"
+  spec.add_development_dependency "excon"
+  spec.add_development_dependency "typhoeus"
 
   spec.add_dependency "base64"
   spec.add_dependency "starry", "~> 0.2"

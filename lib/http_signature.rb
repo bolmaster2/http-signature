@@ -108,6 +108,8 @@ module HTTPSignature
 
     validate_components!(components)
 
+    had_content_digest = normalized_headers.key?("content-digest")
+
     normalized_headers =
       if components.include?("content-digest")
         ensure_content_digest(normalized_headers, body)
@@ -140,10 +142,16 @@ module HTTPSignature
     signature_bytes = sign(base_string, key: key, algorithm: algorithm_entry)
     signature_header = build_signature_header(label, signature_bytes)
 
-    {
+    result = {
       "Signature-Input" => signature_input_header,
       "Signature" => signature_header
     }
+
+    if !had_content_digest && normalized_headers["content-digest"]
+      result["Content-Digest"] = normalized_headers["content-digest"]
+    end
+
+    result
   end
 
   # Verify RFC 9421 Signature headers

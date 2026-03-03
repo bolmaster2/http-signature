@@ -6,6 +6,8 @@ Built on [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) (HTTP Message Signat
 
 When using a standard to sign your HTTP requests you don't need to write a custom implementation every time. There's [loads of libraries](https://httpsig.org/) across languages that's implementing it!
 
+Use your favorite http clients to sign requests and your favorite frameworks to verify them, see [Outgoing request examples](#outgoing-request-examples) and [Incoming request examples](#incoming-request-examples)
+
 ## Installation
 
 ```shell
@@ -16,21 +18,29 @@ bundle add http_signature
 
 ### Create signature
 
-`HTTPSignature.create` returns both `Signature-Input` and `Signature` headers that you can include in your request.
+`HTTPSignature.create` returns `Signature-Input`, `Signature` and `Content-Digest` headers that you can include in your request.
+
+This example will sign:
+- The whole `url` string: `https://example.com/foo?pet=dog`
+- The HTTP method: `POST`
+- The headers `Content-Type` and `Content-Digest`
+- The body, which is in the `Content-Digest` header and is automatically generated when a body is provided
 
 ```ruby
 HTTPSignature.create(
   url: "https://example.com/foo?pet=dog",
-  method: :get,
-  key_id: "Test",
+  method: :post,
+  key_id: "key-1",
   key: "secret",
-  headers: { "date" => "Tue, 20 Apr 2021 02:07:55 GMT" },
-  components: %w[@method @target-uri date]
+  headers: {"Content-Type" => "application/json"},
+  body: {payload: {foo: "bar"}}.to_json,
+  components: %w[@method @target-uri content-type content-digest]
 )
-# => {
-#   "Signature-Input" => "sig1=(\"@method\" \"@target-uri\" \"date\");created=1772444045;keyid=\"Test\";alg=\"hmac-sha256\"",
-#   "Signature" => "sig1=:zpXxiPxS8IFPMYAqRCsgj+eG8wHeft6VGS0YiZKzmQ4=:"
-# }
+# =>
+# {"Signature-Input" =>
+#   "sig1=(\"@method\" \"@target-uri\" \"content-type\" \"content-digest\");created=1772541832;keyid=\"key-1\";alg=\"hmac-sha256\"",
+#  "Signature" => "sig1=:5ij6rnnwS9oOtu78zU4yBFy9uL3ItXM7ug368cJZuTU=:",
+#  "Content-Digest" => "sha-256=:zWToMIpmVcAx10/ZGOrMzi7HQyUBat/TskigQnncEQ8=:"}
 ```
 #### All options
 
@@ -248,37 +258,35 @@ end
 
 ## Outgoing request examples
 
-### NET::HTTP
+### Net::HTTP
 
 ```ruby
 require "net/http"
 require "http_signature"
 
 uri = URI("http://example.com/hello")
+body = {name: "World"}.to_json
+headers = {"Content-Type" => "application/json"}
 
-Net::HTTP.start(uri.host, uri.port) do |http|
-  request = Net::HTTP::Get.new(uri)
+sig_headers = HTTPSignature.create(
+  url: uri.to_s,
+  method: :post,
+  headers:,
+  key: "MYSECRETKEY",
+  key_id: "KEY_1",
+  body:
+)
 
-  sig_headers = HTTPSignature.create(
-    url: request.uri,
-    method: request.method,
-    headers: request.each_header.map { |k, v| [k, v] }.to_h,
-    key: "MYSECRETKEY",
-    key_id: "KEY_1",
-    algorithm: "hmac-sha256",
-    body: request.body || ""
-  )
+req = Net::HTTP::Post.new(uri)
+headers.merge(sig_headers).each { |k, v| req[k] = v }
+req.body = body
 
-  request["Signature-Input"] = sig_headers["Signature-Input"]
-  request["Signature"] = sig_headers["Signature"]
-
-  response = http.request(request) # Net::HTTPResponse
-end
+Net::HTTP.start(uri.host, uri.port) { |http| http.request(req) }
 ```
 
 ### Faraday
 
-As a faraday middleware
+As a Faraday middleware
 
 ```ruby
 require "http_signature/faraday"
@@ -286,17 +294,81 @@ require "http_signature/faraday"
 HTTPSignature::Faraday.key = "secret"
 HTTPSignature::Faraday.key_id = "key-1"
 
-Faraday.new("http://example.com") do |faraday|
-  faraday.use(HTTPSignature::Faraday)
-  faraday.adapter(Faraday.default_adapter)
+conn = Faraday.new("http://example.com") do |f|
+  f.use(HTTPSignature::Faraday)
 end
 
-# Now this request will contain the `Signature-Input` and `Signature` headers
-response = conn.get("/")
+# Requests will automatically include Signature-Input, Signature, and Content-Digest headers
+conn.post("/hello") do |req|
+  req.headers["Content-Type"] = "application/json"
+  req.body = {name: "World"}.to_json
+end
+```
 
-# Request looking like:
-# Signature-Input: sig1=("@method" "@authority" "@target-uri" "date");created=...
-# Signature: sig1=:BASE64_SIGNATURE:
+### HTTParty
+
+```ruby
+require "httparty"
+require "http_signature"
+
+url = "http://example.com/hello"
+body = {name: "World"}.to_json
+headers = {"Content-Type" => "application/json"}
+
+sig_headers = HTTPSignature.create(
+  url:,
+  method: "POST",
+  headers:,
+  key: "MYSECRETKEY",
+  key_id: "KEY_1",
+  body:
+)
+
+HTTParty.post(url, body:, headers: headers.merge(sig_headers))
+```
+
+### Excon
+
+```ruby
+require "excon"
+require "http_signature"
+
+url = "http://example.com/hello"
+body = {name: "World"}.to_json
+headers = {"Content-Type" => "application/json"}
+
+sig_headers = HTTPSignature.create(
+  url:,
+  method: "POST",
+  headers:,
+  key: "MYSECRETKEY",
+  key_id: "KEY_1",
+  body:
+)
+
+Excon.post(url, headers: headers.merge(sig_headers), body:)
+```
+
+### Typhoeus
+
+```ruby
+require "typhoeus"
+require "http_signature"
+
+url = "http://example.com/hello"
+body = {name: "World"}.to_json
+headers = {"Content-Type" => "application/json"}
+
+sig_headers = HTTPSignature.create(
+  url:,
+  method: "POST",
+  headers:,
+  key: "MYSECRETKEY",
+  key_id: "KEY_1",
+  body:
+)
+
+Typhoeus.post(url, body:, headers: headers.merge(sig_headers))
 ```
 
 ## Incoming request examples
