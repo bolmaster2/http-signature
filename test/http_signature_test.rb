@@ -1764,7 +1764,10 @@ class HTTPSignatureTest < Minitest::Test
 
     # Auto-detect picks first label, which has key_id "test-key-a"
     resolved_key_ids = []
-    resolver = ->(key_id) { resolved_key_ids << key_id; shared_secret }
+    resolver = ->(key_id) {
+      resolved_key_ids << key_id
+      shared_secret
+    }
 
     HTTPSignature.valid?(
       url: "https://example.com/resource",
