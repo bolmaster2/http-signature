@@ -40,7 +40,7 @@ class HTTPSignature::Faraday < Faraday::Middleware
   private
 
   def merged_options(env)
-    request_options = env.request.context&.fetch(:http_signature, {}) || {}
+    request_options = env.request.context&.dig(:http_signature) || {}
     @options.merge(request_options)
   end
 
@@ -54,12 +54,11 @@ class HTTPSignature::Faraday < Faraday::Middleware
       body:,
       **create_options(options)
     }.tap do |signature_options|
-      signature_options[:algorithm] = options[:algorithm] if options.key?(:algorithm)
       signature_options[:components] = options[:components] if options.key?(:components)
     end
   end
 
   def create_options(options)
-    options.slice(:created, :expires, :nonce, :label, :include_alg)
+    options.slice(:created, :expires, :nonce, :label, :include_alg, :algorithm)
   end
 end
