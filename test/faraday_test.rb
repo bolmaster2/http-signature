@@ -124,6 +124,53 @@ describe HTTPSignature::Faraday do
     )
   end
 
+  it "ignores nil optional middleware values and keeps HTTPSignature defaults" do
+    captured_env = nil
+    conn = Faraday.new("http://example.com") do |faraday|
+      faraday.use(
+        HTTPSignature::Faraday,
+        key: hmac_key,
+        key_id: "key-1",
+        components: nil,
+        created: nil,
+        expires: nil,
+        nonce: nil,
+        label: nil,
+        include_alg: nil,
+        algorithm: nil
+      )
+      faraday.adapter(:test) do |stub|
+        stub.post("/") do |env|
+          captured_env = env
+          [200, {}, "ok"]
+        end
+      end
+    end
+
+    conn.post("/") do |req|
+      req.headers["Content-Type"] = "application/json"
+      req.body = {message: "hi"}.to_json
+    end
+
+    refute_nil captured_env
+    signature_input = captured_env[:request_headers]["Signature-Input"]
+    signature = captured_env[:request_headers]["Signature"]
+
+    assert signature_input.start_with?("sig1=(")
+    assert signature.start_with?("sig1=:")
+    assert_includes signature_input, 'alg="hmac-sha256"'
+    assert_includes signature_input, '"content-type"'
+    assert_includes signature_input, '"content-digest"'
+
+    assert HTTPSignature.valid?(
+      url: "http://example.com/",
+      method: :post,
+      headers: captured_env[:request_headers],
+      body: {message: "hi"}.to_json,
+      key: hmac_key
+    )
+  end
+
   it "accepts per-request key and key_id overrides" do
     HTTPSignature::Faraday.key = "default-secret"
     HTTPSignature::Faraday.key_id = "default-key"

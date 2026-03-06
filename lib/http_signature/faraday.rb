@@ -54,11 +54,14 @@ class HTTPSignature::Faraday < Faraday::Middleware
       body:,
       **create_options(options)
     }.tap do |signature_options|
-      signature_options[:components] = options[:components] if options.key?(:components)
+      if options.key?(:components) && !options[:components].nil?
+        signature_options[:components] = options[:components]
+      end
     end
   end
 
   def create_options(options)
     options.slice(:created, :expires, :nonce, :label, :include_alg, :algorithm)
+      .reject { |_key, value| value.nil? }
   end
 end
