@@ -8,8 +8,16 @@ class HTTPSignature::Faraday < Faraday::Middleware
     attr_accessor :key, :key_id
   end
 
+  def initialize(app, options = nil)
+    super(app)
+    @options = options || {}
+  end
+
   def call(env)
-    raise "key and key_id needs to be set" if self.class.key.nil? || self.class.key_id.nil?
+    options = merged_options(env)
+    key = options.fetch(:key, self.class.key)
+    key_id = options.fetch(:key_id, self.class.key_id)
+    raise "key and key_id needs to be set" if key.nil? || key_id.nil?
 
     body =
       if env[:body]&.respond_to?(:read)
@@ -20,24 +28,40 @@ class HTTPSignature::Faraday < Faraday::Middleware
         env[:body].to_s
       end
 
-    # Choose which headers to sign
-    filtered_headers = %w[Host Date Content-Digest]
-    headers_to_sign = env[:request_headers].select { |k, _v| filtered_headers.include?(k.to_s) }
-
-    signature_headers = HTTPSignature.create(
-      url: env[:url],
-      method: env[:method],
-      headers: headers_to_sign,
-      key: self.class.key,
-      key_id: self.class.key_id,
-      algorithm: "hmac-sha256",
-      body: body
-    )
+    signature_headers = HTTPSignature.create(**signature_options(env:, key:, key_id:, body:, options:))
 
     signature_headers.each do |header, value|
       env[:request_headers][header] = value
     end
 
     @app.call(env)
+  end
+
+  private
+
+  def merged_options(env)
+    request_options = env.request.context&.dig(:http_signature) || {}
+    @options.merge(request_options)
+  end
+
+  def signature_options(env:, key:, key_id:, body:, options:)
+    {
+      url: env[:url],
+      method: env[:method],
+      headers: env[:request_headers],
+      key:,
+      key_id:,
+      body:,
+      **create_options(options)
+    }.tap do |signature_options|
+      if options.key?(:components) && !options[:components].nil?
+        signature_options[:components] = options[:components]
+      end
+    end
+  end
+
+  def create_options(options)
+    options.slice(:created, :expires, :nonce, :label, :include_alg, :algorithm)
+      .reject { |_key, value| value.nil? }
   end
 end

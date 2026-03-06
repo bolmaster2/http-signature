@@ -305,6 +305,34 @@ conn.post("/hello") do |req|
 end
 ```
 
+You can also configure the middleware inline when you add it:
+
+```ruby
+conn = Faraday.new("http://example.com") do |f|
+  f.use(
+    HTTPSignature::Faraday,
+    key: "secret",
+    key_id: "key-1",
+    components: ["@method", "@target-uri", "date", "x-request-id"]
+  )
+end
+```
+
+Use `components:` to choose exactly which request components are included in the signature. If you do not pass `components:`, the middleware uses the same default component selection as `HTTPSignature.create`, including the default headers from `HTTPSignature`.
+
+```ruby
+conn = Faraday.new("http://example.com") do |f|
+  f.use(
+    HTTPSignature::Faraday,
+    key: "secret",
+    key_id: "key-1",
+    components: ["@method", "@target-uri", "content-type", "content-digest"]
+  )
+end
+```
+
+The middleware also accepts the signature parameter options `created:`, `expires:`, `nonce:`, `label:`, `algorithm:`, and `include_alg:`.
+
 ### HTTParty
 
 ```ruby
