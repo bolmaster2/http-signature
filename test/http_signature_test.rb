@@ -1762,21 +1762,27 @@ class HTTPSignatureTest < Minitest::Test
       "Signature" => "#{first["Signature"]}, #{second["Signature"]}"
     }
 
-    # Auto-detect picks first label
-    assert HTTPSignature.valid?(
-      url: "https://example.com/resource",
-      method: :get,
-      headers: combined_headers,
-      key: shared_secret
-    )
+    # Auto-detect picks first label, which has key_id "test-key-a"
+    resolved_key_ids = []
+    resolver = ->(key_id) { resolved_key_ids << key_id; shared_secret }
 
-    # Explicit label picks second
-    assert HTTPSignature.valid?(
+    HTTPSignature.valid?(
       url: "https://example.com/resource",
       method: :get,
       headers: combined_headers,
-      key: shared_secret,
+      key_resolver: resolver
+    )
+    assert_equal ["test-key-a"], resolved_key_ids
+
+    # Explicit label picks second, which has key_id "test-key-b"
+    resolved_key_ids.clear
+    HTTPSignature.valid?(
+      url: "https://example.com/resource",
+      method: :get,
+      headers: combined_headers,
+      key_resolver: resolver,
       label: "second-sig"
     )
+    assert_equal ["test-key-b"], resolved_key_ids
   end
 end
