@@ -1677,4 +1677,46 @@ class HTTPSignatureTest < Minitest::Test
       )
     end
   end
+
+  def test_create_returns_content_digest_when_body_present
+    result = HTTPSignature.create(
+      url: "https://example.com/webhook",
+      method: :post,
+      headers: {"Content-Type" => "application/json"},
+      body: '{"id":1}',
+      key: shared_secret,
+      key_id: "test",
+      created: 1
+    )
+
+    assert result.key?("Content-Digest"), "Expected Content-Digest in result"
+    assert_match(/sha-256=:.*:/, result["Content-Digest"])
+  end
+
+  def test_create_does_not_return_content_digest_without_body
+    result = HTTPSignature.create(
+      url: "https://example.com/protected",
+      method: :get,
+      key: shared_secret,
+      key_id: "test",
+      created: 1
+    )
+
+    refute result.key?("Content-Digest"), "Expected no Content-Digest for bodyless request"
+  end
+
+  def test_create_does_not_return_content_digest_when_caller_provides_it
+    digest = "sha-256=:#{Base64.strict_encode64(Digest::SHA256.digest('{"id":1}'))}:"
+    result = HTTPSignature.create(
+      url: "https://example.com/webhook",
+      method: :post,
+      headers: {"Content-Type" => "application/json", "Content-Digest" => digest},
+      body: '{"id":1}',
+      key: shared_secret,
+      key_id: "test",
+      created: 1
+    )
+
+    refute result.key?("Content-Digest"), "Expected no Content-Digest when caller already provides it"
+  end
 end
