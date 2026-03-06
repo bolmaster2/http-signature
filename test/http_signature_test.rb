@@ -1719,4 +1719,73 @@ class HTTPSignatureTest < Minitest::Test
 
     refute result.key?("Content-Digest"), "Expected no Content-Digest when caller already provides it"
   end
+
+  def test_valid_auto_detects_label
+    result = HTTPSignature.create(
+      url: "https://example.com/resource",
+      method: :get,
+      key: shared_secret,
+      key_id: "test-key-a",
+      created: 1_618_884_473,
+      label: "my-sig"
+    )
+
+    assert HTTPSignature.valid?(
+      url: "https://example.com/resource",
+      method: :get,
+      headers: result,
+      key: shared_secret
+    )
+  end
+
+  def test_valid_auto_detects_first_label_with_multiple_signatures
+    first = HTTPSignature.create(
+      url: "https://example.com/resource",
+      method: :get,
+      key: shared_secret,
+      key_id: "test-key-a",
+      created: 1_618_884_473,
+      label: "first-sig"
+    )
+
+    second = HTTPSignature.create(
+      url: "https://example.com/resource",
+      method: :get,
+      key: shared_secret,
+      key_id: "test-key-b",
+      created: 1_618_884_473,
+      label: "second-sig"
+    )
+
+    combined_headers = {
+      "Signature-Input" => "#{first["Signature-Input"]}, #{second["Signature-Input"]}",
+      "Signature" => "#{first["Signature"]}, #{second["Signature"]}"
+    }
+
+    # Auto-detect picks first label, which has key_id "test-key-a"
+    resolved_key_ids = []
+    resolver = ->(key_id) {
+      resolved_key_ids << key_id
+      shared_secret
+    }
+
+    HTTPSignature.valid?(
+      url: "https://example.com/resource",
+      method: :get,
+      headers: combined_headers,
+      key_resolver: resolver
+    )
+    assert_equal ["test-key-a"], resolved_key_ids
+
+    # Explicit label picks second, which has key_id "test-key-b"
+    resolved_key_ids.clear
+    HTTPSignature.valid?(
+      url: "https://example.com/resource",
+      method: :get,
+      headers: combined_headers,
+      key_resolver: resolver,
+      label: "second-sig"
+    )
+    assert_equal ["test-key-b"], resolved_key_ids
+  end
 end

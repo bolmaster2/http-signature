@@ -162,7 +162,8 @@ module HTTPSignature
   # @param body [String] Request body (default: "")
   # @param key [String, OpenSSL::PKey::PKey, nil] Verification key. If nil, uses key_resolver or configured keys
   # @param key_resolver [Proc, nil] Callable that receives key_id and returns the key (default: nil)
-  # @param label [String] Signature label to verify (default: "sig1")
+  # @param label [String, nil] Signature label to verify. If nil, auto-detects
+  #   the first label from the Signature-Input header (default: nil)
   # @param query_string_params [Hash] Additional query params to merge into URL (default: {})
   # @param max_age [Integer, nil] Maximum signature age in seconds. Takes precedence over
   #   the expires timestamp in the signature (default: nil)
@@ -182,7 +183,7 @@ module HTTPSignature
     body: "",
     key: nil,
     key_resolver: nil,
-    label: DEFAULT_LABEL,
+    label: nil,
     query_string_params: {},
     max_age: nil,
     algorithm: nil,
@@ -198,6 +199,8 @@ module HTTPSignature
     signature_input_header = normalized_headers["signature-input"]
     signature_header = normalized_headers["signature"]
     raise SignatureError, "Signature headers are required for verification" unless signature_input_header && signature_header
+
+    label ||= detect_label(signature_input_header)
 
     parsed_input = parse_signature_input(signature_input_header, label)
     validate_components!(parsed_input[:components])
@@ -630,6 +633,16 @@ module HTTPSignature
 
   def self.split_header(header)
     header.to_s.split(/,(?=[^,]+=)/).map(&:strip)
+  end
+
+  def self.detect_label(signature_input_header)
+    entry = split_header(signature_input_header).first
+    raise SignatureError, "Signature-Input missing" unless entry
+
+    label = entry.split("=", 2).first
+    raise SignatureError, "Signature-Input missing" if label.nil? || label.empty?
+
+    label
   end
 
   def self.key_from_store(key_id)
