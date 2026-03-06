@@ -1719,4 +1719,64 @@ class HTTPSignatureTest < Minitest::Test
 
     refute result.key?("Content-Digest"), "Expected no Content-Digest when caller already provides it"
   end
+
+  def test_valid_auto_detects_label
+    result = HTTPSignature.create(
+      url: "https://example.com/resource",
+      method: :get,
+      key: shared_secret,
+      key_id: "test-key-a",
+      created: 1_618_884_473,
+      label: "my-sig"
+    )
+
+    assert HTTPSignature.valid?(
+      url: "https://example.com/resource",
+      method: :get,
+      headers: result,
+      key: shared_secret
+    )
+  end
+
+  def test_valid_auto_detects_first_label_with_multiple_signatures
+    first = HTTPSignature.create(
+      url: "https://example.com/resource",
+      method: :get,
+      key: shared_secret,
+      key_id: "test-key-a",
+      created: 1_618_884_473,
+      label: "first-sig"
+    )
+
+    second = HTTPSignature.create(
+      url: "https://example.com/resource",
+      method: :get,
+      key: shared_secret,
+      key_id: "test-key-b",
+      created: 1_618_884_473,
+      label: "second-sig"
+    )
+
+    combined_headers = {
+      "Signature-Input" => "#{first["Signature-Input"]}, #{second["Signature-Input"]}",
+      "Signature" => "#{first["Signature"]}, #{second["Signature"]}"
+    }
+
+    # Auto-detect picks first label
+    assert HTTPSignature.valid?(
+      url: "https://example.com/resource",
+      method: :get,
+      headers: combined_headers,
+      key: shared_secret
+    )
+
+    # Explicit label picks second
+    assert HTTPSignature.valid?(
+      url: "https://example.com/resource",
+      method: :get,
+      headers: combined_headers,
+      key: shared_secret,
+      label: "second-sig"
+    )
+  end
 end
