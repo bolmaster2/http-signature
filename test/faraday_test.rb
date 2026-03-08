@@ -89,6 +89,7 @@ describe HTTPSignature::Faraday do
         created:,
         expires:,
         nonce: "abc123",
+        tag: "web-bot-auth",
         label: "custom",
         algorithm: "hmac-sha512",
         include_alg: false
@@ -112,6 +113,7 @@ describe HTTPSignature::Faraday do
     assert_includes signature_input, "created=#{created}"
     assert_includes signature_input, "expires=#{expires}"
     assert_includes signature_input, 'nonce="abc123"'
+    assert_includes signature_input, 'tag="web-bot-auth"'
     refute_includes signature_input, "alg=\"hmac-sha512\""
 
     assert HTTPSignature.valid?(
@@ -135,6 +137,7 @@ describe HTTPSignature::Faraday do
         created: nil,
         expires: nil,
         nonce: nil,
+        tag: nil,
         label: nil,
         include_alg: nil,
         algorithm: nil
@@ -167,6 +170,43 @@ describe HTTPSignature::Faraday do
       method: :post,
       headers: captured_env[:request_headers],
       body: {message: "hi"}.to_json,
+      key: hmac_key
+    )
+  end
+
+  it "accepts per-request tag overrides" do
+    HTTPSignature::Faraday.key = hmac_key
+    HTTPSignature::Faraday.key_id = "key-1"
+
+    captured_env = nil
+    conn = Faraday.new("http://example.com") do |faraday|
+      faraday.use(HTTPSignature::Faraday, tag: "default-tag")
+      faraday.adapter(:test) do |stub|
+        stub.get("/") do |env|
+          captured_env = env
+          [200, {}, "ok"]
+        end
+      end
+    end
+
+    conn.get("/") do |req|
+      req.options.context = {
+        http_signature: {
+          tag: "request-tag"
+        }
+      }
+    end
+
+    refute_nil captured_env
+    signature_input = captured_env[:request_headers]["Signature-Input"]
+
+    assert_includes signature_input, 'tag="request-tag"'
+    refute_includes signature_input, 'tag="default-tag"'
+
+    assert HTTPSignature.valid?(
+      url: "http://example.com/",
+      method: :get,
+      headers: captured_env[:request_headers],
       key: hmac_key
     )
   end

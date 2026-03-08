@@ -57,6 +57,7 @@ HTTPSignature.create(
   created: Time.now.to_i, # Default: Time.now.to_i
   expires: Time.now.to_i + 600, # Default: nil
   nonce: "1", # Default: nil
+  tag: "web-bot-auth", # Default: nil
   label: "sig1", # Default: "sig1"
   query_string_params: {pet2: "cat"}, # Default: {}, you can pass query string params both here and in the `url` param
   algorithm: "hmac-sha512", # Default: "hmac-sha256"
@@ -318,7 +319,7 @@ conn = Faraday.new("http://example.com") do |f|
 end
 ```
 
-The middleware also accepts the params: `created:`, `expires:`, `nonce:`, `label:`, `algorithm:`, and `include_alg:`.
+The middleware also accepts the params: `created:`, `expires:`, `nonce:`, `tag:`, `label:`, `algorithm:`, and `include_alg:`.
 
 ### HTTParty
 

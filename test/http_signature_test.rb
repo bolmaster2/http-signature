@@ -377,6 +377,7 @@ class HTTPSignatureTest < Minitest::Test
   def test_signature_input_escapes_structured_values
     key_id = 'key"id\\with\\backslash'
     nonce = 'nonce"value\\and\\more'
+    tag = 'tag"value\\and\\more'
 
     sig_headers = HTTPSignature.create(
       url: default_url,
@@ -385,6 +386,7 @@ class HTTPSignatureTest < Minitest::Test
       key_id:,
       key: shared_secret,
       nonce:,
+      tag:,
       components: %w[@method],
       created: 1
     )
@@ -393,6 +395,7 @@ class HTTPSignatureTest < Minitest::Test
 
     assert_includes sig_input, 'keyid="key\"id\\\\with\\\\backslash"'
     assert_includes sig_input, 'nonce="nonce\"value\\\\and\\\\more"'
+    assert_includes sig_input, 'tag="tag\"value\\\\and\\\\more"'
   end
 
   def test_roundtrip_with_special_characters_in_key_id
@@ -1306,6 +1309,31 @@ class HTTPSignatureTest < Minitest::Test
     )
 
     assert_includes sig_headers["Signature-Input"], %(nonce="#{nonce}")
+
+    headers = default_headers.merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :get,
+      headers:,
+      key: shared_secret
+    )
+  end
+
+  def test_tag_roundtrip_in_verification
+    tag = "web-bot-auth"
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :get,
+      headers: default_headers,
+      key_id: "test-shared-secret",
+      key: shared_secret,
+      components: %w[@method],
+      tag:
+    )
+
+    assert_includes sig_headers["Signature-Input"], %(tag="#{tag}")
 
     headers = default_headers.merge(sig_headers)
 
