@@ -63,6 +63,7 @@ module HTTPSignature
   # @param created [Integer] Unix timestamp for signature creation (default: Time.now.to_i)
   # @param expires [Integer, nil] Unix timestamp when signature expires (default: nil)
   # @param nonce [String, nil] Random value for signature uniqueness (default: nil)
+  # @param tag [String, nil] Application-specific tag parameter included in signature metadata (default: nil)
   # @param label [String] Signature label in headers (default: "sig1")
   # @param query_string_params [Hash] Additional query params to merge into URL (default: {})
   # @param include_alg [Boolean] Whether to include alg in signature metadata (default: true)
@@ -84,6 +85,7 @@ module HTTPSignature
     created: Time.now.to_i,
     expires: nil,
     nonce: nil,
+    tag: nil,
     label: DEFAULT_LABEL,
     query_string_params: {},
     include_alg: true,
@@ -136,6 +138,7 @@ module HTTPSignature
       key_id:,
       alg: include_alg ? algorithm : nil,
       nonce:,
+      tag:,
       canonical_components:
     )
 
@@ -249,6 +252,7 @@ module HTTPSignature
       key_id:,
       alg: parsed_input[:params][:alg],
       nonce: parsed_input[:params][:nonce],
+      tag: parsed_input[:params][:tag],
       canonical_components:
     )
 
@@ -349,7 +353,11 @@ module HTTPSignature
   def self.verify_content_digest!(header_value, body)
     verified = false
 
-    header_value.scan(/([a-z0-9-]+)=:([A-Za-z0-9+\/=]+):/).each do |alg, encoded_digest|
+    split_header(header_value).each do |entry|
+      alg, digest_value = entry.split("=", 2)
+      next unless alg && digest_value&.start_with?(":") && digest_value.end_with?(":")
+
+      encoded_digest = digest_value[1...-1]
       digest = case alg
       when "sha-256" then Digest::SHA256.digest(body)
       when "sha-512" then Digest::SHA512.digest(body)
@@ -501,6 +509,7 @@ module HTTPSignature
     key_id:,
     alg:,
     nonce:,
+    tag:,
     canonical_components:
   )
     component_tokens = components.map { |c| serialize_component_id(c) }.join(" ")
@@ -509,6 +518,7 @@ module HTTPSignature
     params << %(keyid="#{escape_structured_string(key_id)}")
     params << %(alg="#{escape_structured_string(alg)}") if alg
     params << %(nonce="#{escape_structured_string(nonce)}") if nonce
+    params << %(tag="#{escape_structured_string(tag)}") if tag
 
     signature_params = "(#{component_tokens});#{params.join(";")}"
     signature_input_header = "#{label}=#{signature_params}"

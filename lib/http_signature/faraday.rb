@@ -61,7 +61,7 @@ class HTTPSignature::Faraday < Faraday::Middleware
   end
 
   def create_options(options)
-    options.slice(:created, :expires, :nonce, :label, :include_alg, :algorithm)
+    options.slice(:created, :expires, :nonce, :tag, :label, :include_alg, :algorithm)
       .reject { |_key, value| value.nil? }
   end
 end
