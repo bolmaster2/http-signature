@@ -337,10 +337,7 @@ class HTTPSignatureTest < Minitest::Test
       key: shared_secret
     )
 
-    component_section = sig_headers.fetch("Signature-Input")[/\(([^)]*)\)/, 1]
-    components = component_section.split.map { |c| c.delete_prefix('"').delete_suffix('"') }
-
-    assert_equal %w[@method @target-uri content-digest content-type], components
+    assert_includes sig_headers["Signature-Input"], "(\"@method\" \"@target-uri\" \"content-digest\" \"content-type\")"
   end
 
   def test_merges_url_and_query_string_params_into_signature
