@@ -176,7 +176,7 @@ HTTPSignature.valid?(
   body: request_body, # Default: ""
   key: "secret", # Default: nil, uses key_resolver or configured keys if nil
   key_resolver: ->(key_id) { find_key(key_id) }, # Default: nil, called with the key_id from Signature-Input
-  label: "sig1", # Default: "sig1"
+  label: "sig1", # Default: nil (uses first)
   query_string_params: {}, # Default: {}
   max_age: 300, # Default: nil, reject signatures older than N seconds
   algorithm: "hmac-sha256", # Default: nil, uses alg from Signature-Input or hmac-sha256
