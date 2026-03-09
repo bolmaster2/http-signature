@@ -423,6 +423,16 @@ class Api::BaseController < ApplicationController
 end
 ```
 
+To enforce a specific signature label or age limit, use a block:
+
+```ruby
+class Api::BaseController < ApplicationController
+  include HTTPSignature::Rails::Controller
+
+  before_action -> { verify_http_signature!(label: "sig2", max_age: 300) }
+end
+```
+
 Set the keys in an initializer
 ```ruby
 # config/initializers/http_signature.rb

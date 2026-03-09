@@ -11,7 +11,7 @@ module HTTPSignature
       private
 
       # Use as a Rails before_action to enforce HTTP Message Signatures on an action.
-      def verify_http_signature!
+      def verify_http_signature!(label: nil, max_age: nil)
         request_headers = normalized_request_headers
         signature_input_header = request_headers["signature-input"]
         signature_header = request_headers["signature"]
@@ -25,7 +25,9 @@ module HTTPSignature
           method: request.request_method,
           headers: request_headers,
           body: request_body || "",
-          key_resolver: ->(key_id) { HTTPSignature.key(key_id) }
+          key_resolver: ->(key_id) { HTTPSignature.key(key_id) },
+          label:,
+          max_age:
         )
 
         nil
