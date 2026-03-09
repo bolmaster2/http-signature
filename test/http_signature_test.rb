@@ -1021,6 +1021,34 @@ class HTTPSignatureTest < Minitest::Test
     )
   end
 
+  def test_verify_content_digest_with_multiple_entries
+    body = '{"hello":"world"}'
+    headers = {"content-type" => "application/json"}
+    sha256_digest = Base64.strict_encode64(Digest::SHA256.digest(body))
+    sha512_digest = Base64.strict_encode64(Digest::SHA512.digest(body))
+    content_digest = "sha-256=:#{sha256_digest}:, sha-512=:#{sha512_digest}:"
+
+    sig_headers = HTTPSignature.create(
+      url: default_url,
+      method: :post,
+      headers: headers.merge("content-digest" => content_digest),
+      body:,
+      key_id: "test",
+      key: shared_secret,
+      components: %w[@method content-digest]
+    )
+
+    signed_headers = headers.merge("content-digest" => content_digest).merge(sig_headers)
+
+    assert HTTPSignature.valid?(
+      url: default_url,
+      method: :post,
+      headers: signed_headers,
+      body:,
+      key: shared_secret
+    )
+  end
+
   def test_verify_rejects_missing_content_digest_when_required
     body = '{"hello":"world"}'
     headers = {"content-type" => "application/json"}

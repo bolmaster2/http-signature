@@ -353,7 +353,11 @@ module HTTPSignature
   def self.verify_content_digest!(header_value, body)
     verified = false
 
-    header_value.scan(/([a-z0-9-]+)=:([A-Za-z0-9+\/=]+):/).each do |alg, encoded_digest|
+    split_header(header_value).each do |entry|
+      alg, digest_value = entry.split("=", 2)
+      next unless alg && digest_value&.start_with?(":") && digest_value.end_with?(":")
+
+      encoded_digest = digest_value[1...-1]
       digest = case alg
       when "sha-256" then Digest::SHA256.digest(body)
       when "sha-512" then Digest::SHA512.digest(body)
