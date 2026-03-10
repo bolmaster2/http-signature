@@ -306,7 +306,7 @@ conn.post("/hello") do |req|
 end
 ```
 
-Example with setting params per request:
+Example setting options per connection:
 
 ```ruby
 conn = Faraday.new("http://example.com") do |f|
